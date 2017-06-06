@@ -302,7 +302,7 @@ set_package_properties(YamlCpp
 # setup ROOT includes and libraries
 message(STATUS "")
 message(STATUS ">>> Setting up ROOT.")
-find_package(ROOT 6.08.00 REQUIRED "Minuit2" "MathMore" "TreePlayer" "PyROOT")
+find_package(ROOT 6.08.00 REQUIRED "Minuit2" "MathMore" "TreePlayer" "PyROOT" "Hist")
 set_package_properties(ROOT
 	PROPERTIES
 	DESCRIPTION "C++ HEP analysis framework"
@@ -587,6 +587,7 @@ set(_SRC_DIRS
 	"highLevelInterface"
 	"nBodyPhaseSpace"
 	"partialWaveFit"
+	"plotting"
 	"particleData"
 	"pyInterface"
 	"relativisticAmpCorrections"
