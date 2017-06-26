@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# pylint: disable=E1111
 
 import argparse
 import sys
@@ -65,6 +66,8 @@ if __name__ == "__main__":
 		sys.exit(1)
 
 	waveNames = fitResult.waveNames() # determines the indexing
+	# remove wave names whose intensity is 0
+	waveNames = [ waveName for waveName in waveNames if  np.abs(fitResult.spinDensityMatrixElem(waveName, waveName)) > 0.0 ]
 	waveIndexFlat = waveNames.index('flat')
 	nWaves = len(waveNames)
 	spinDensityMatrix = np.empty((nWaves,nWaves), dtype=np.complex)
