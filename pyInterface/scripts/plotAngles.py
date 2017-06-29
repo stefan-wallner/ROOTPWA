@@ -118,7 +118,8 @@ if __name__ == "__main__":
 	parser.add_argument("inputFile", type=str, metavar="inputFile", help="inputFile")
 	parser.add_argument("outputFile", metavar="output-file", help="path to output file")
 	parser.add_argument("templateFile", metavar="template-file", help="path to template file")
-	parser.add_argument("-b", action="append", metavar="massBin(s)", default=[], dest="massBins", help="mass bins to be calculated (default: all)")
+	parser.add_argument("-b", type=int, action='append', metavar="integralMultiBin(s)", default=[], dest="multiBins",
+	                    help="integral multi-bin to be calculated (default: full range of the input file)")
 	parser.add_argument("-c", type=str, metavar="config-file", default="rootpwa.config", dest="configFileName", help="path to config file (default: ./rootpwa.config)")
 	parser.add_argument("-g", "--n-bins", type=int, metavar="n-bins", default=100, dest="nHistogramBins", help="number of bins for the histograms (default: 100)")
 	parser.add_argument("-g2d", "--n-2D-bins", type=int, metavar="n-bins", default=50, dest="nHistogram2DBins", help="number of bins for the 2D histograms (default: 50)")
@@ -130,8 +131,6 @@ if __name__ == "__main__":
 	parser.add_argument("--disable-bose-symmetrization", action="store_true", dest="disableBoseSymmetrization", help="do not consider Bose-symmetric permutations")
 	parser.add_argument("--weight-file", type=str, metavar="weightFile", dest="weightFile", help="weightFile")
 	arguments = parser.parse_args()
-	if not arguments.massBins:
-		arguments.massBins.append("all")
 
 	if arguments.type not in ["data", "acc", "gen"]:
 		pyRootPwa.utils.printErr("invalid type '" + arguments.type + "' found, must be either 'data', 'gen' or 'acc'. Aborting...")
@@ -165,11 +164,22 @@ if __name__ == "__main__":
 		pyRootPwa.utils.printInfo("X mass histogram found. Switching root to batch mode.")
 		pyRootPwa.ROOT.gROOT.SetBatch(True)
 
-	pyRootPwa.config = pyRootPwa.rootPwaConfig()
-	if not pyRootPwa.config.initialize(arguments.configFileName):
+	config = pyRootPwa.rootPwaConfig()
+	if not config.initialize(arguments.configFileName):
 		pyRootPwa.utils.printErr("loading config file '" + arguments.configFileName + "' failed. Aborting...")
 		sys.exit(1)
-	pyRootPwa.core.particleDataTable.readFile(pyRootPwa.config.pdgFileName)
+	pyRootPwa.core.particleDataTable.readFile(config.pdgFileName)
+	fileManager = pyRootPwa.loadFileManager(config.fileManagerPath)
+
+	multiBins = []
+	if arguments.multiBins:
+		for multibinID in arguments.multiBins:
+			if multibinID >= len(fileManager.binList):
+				pyRootPwa.utils.printErr("Integral bin-id '{0}' is too large".format(multibinID))
+				sys.exit(1)
+			multiBins.append(fileManager.binList[multibinID])
+	else:
+		multiBins.append(None) # take the whole event file
 
 	waveDescs = pyRootPwa.core.waveDescription.parseKeyFile(arguments.templateFile)
 
@@ -200,6 +210,10 @@ if __name__ == "__main__":
 	else:
 		permutations = getPermutations(topology)
 
+	if os.path.isfile(arguments.outputFile):
+		pyRootPwa.utils.printWarn("Output file '{0}' exist.".format(arguments.outputFile))
+		if raw_input("Override? [y/N]:").lower() not in ['y', 'yes']:
+			sys.exit(1)
 	outputFile = pyRootPwa.ROOT.TFile.Open(arguments.outputFile, "RECREATE")
 
 	inputFileRanges = {}
@@ -208,21 +222,20 @@ if __name__ == "__main__":
 	massBinWidth = '%.2f' % (1000.0*((arguments.massMax - arguments.massMin)/arguments.nHistogramBins))
 	cosBinWidth = '%.2f' % (2000.0 / arguments.nHistogramBins)
 	thetaBinWidth = '%.2f' % (pyRootPwa.ROOT.TMath.TwoPi() / arguments.nHistogramBins)
-	for binRange in arguments.massBins:
-		rangeName = ""
+	for multibin in multiBins:
 		eventFile = ROOT.TFile.Open(arguments.inputFile)
 		evtMeta = pyRootPwa.core.eventMetadata.readEventFile(eventFile)
 		if 'mass' not in evtMeta.multibinBoundaries():
 			pyRootPwa.utils.printErr("'mass' is not in the multibin boundaries. Aborting...")
 			sys.exit(1)
-		rangeName = str(int(round((evtMeta.multibinBoundaries()['mass'][0] + evtMeta.multibinBoundaries()['mass'][1])/2.)))
-		inputFileRanges[rangeName] = [ arguments.inputFile ]
+		if multibin is None:
+			multibin = pyRootPwa.utils.multiBin(evtMeta.multibinBoundaries())
+		inputFileRanges[multibin] = [ arguments.inputFile ]
 		eventFile.Close()
-		if not inputFileRanges[rangeName]:
-			pyRootPwa.utils.printErr("no input files found for mass bins " + str(rangeName) + ".")
+		rangeName = multibin.uniqueStr()
 		outputFile.mkdir(rangeName)
 		outputFile.cd(rangeName)
-		hists[rangeName] = []
+		hists[multibin] = []
 		for i in range(topology.nmbDecayVertices()):
 			parent = topology.isobarDecayVertices()[i].parent()
 			daughter1 = topology.isobarDecayVertices()[i].daughter1()
@@ -258,7 +271,7 @@ if __name__ == "__main__":
 			thetaVsMassTitle = "cos #theta(" + label + ") vs. m(" + parent.name + ");m(" + parent.name + ") [GeV/c^{2}];cos #theta(" + label + ");" + thetaYAxisTitle
 			phiVsThetaTitle = "#phi vs. cos(#theta) (" + label + ");cos #theta(" + label + ");#phi(" + label + ") [rad];" + thetaYAxisTitle
 
-			hists[rangeName].append([pyRootPwa.ROOT.TH1D("m_" + parent.name, massTitle, arguments.nHistogramBins, arguments.massMin, arguments.massMax),
+			hists[multibin].append([pyRootPwa.ROOT.TH1D("m_" + parent.name, massTitle, arguments.nHistogramBins, arguments.massMin, arguments.massMax),
 									 pyRootPwa.ROOT.TH1D(name + "_phi", phiTitle, arguments.nHistogramBins, -pyRootPwa.ROOT.TMath.Pi(), pyRootPwa.ROOT.TMath.Pi()),
 			                         pyRootPwa.ROOT.TH1D(name + "_cosTheta", thetaTitle, arguments.nHistogramBins, -1, 1),
 			                         pyRootPwa.ROOT.TH2D(name + "_phi_vs_m_" + parent.name, phiVsMassTitle, arguments.nHistogram2DBins, arguments.massMin,
@@ -267,9 +280,9 @@ if __name__ == "__main__":
 			                                             arguments.massMax, arguments.nHistogram2DBins, -1, 1),
 			                         pyRootPwa.ROOT.TH2D(name + "_phi_vs_cosTheta", phiVsThetaTitle, arguments.nHistogram2DBins, -1, 1, arguments.nHistogram2DBins,
 			                                             -pyRootPwa.ROOT.TMath.Pi(), pyRootPwa.ROOT.TMath.Pi())])
-			for hist in hists[rangeName][-1]:
+			for hist in hists[multibin][-1]:
 				hist.SetMinimum(0)
-		isobarCombinationHistograms[rangeName] = {}
+		isobarCombinationHistograms[multibin] = {}
 		for isobarCombination_i in range(len(isobarCombinations)):
 			isobarCombination = isobarCombinations[isobarCombination_i]
 			index1 = isobarCombination[0]
@@ -285,27 +298,30 @@ if __name__ == "__main__":
 			else:
 				zAxisTitle = str(nEntries) + " entries per event"
 			histName = "m(" + isobar2Name + ") vs. m(" + isobar1Name + ");m(" + isobar1Name + ") [GeV/c^{2}];m(" + isobar2Name + ") [GeV/c^{2}];" + zAxisTitle
-			isobarCombinationHistograms[rangeName][isobarCombination] = pyRootPwa.ROOT.TH2D("m_" + isobar2Name + "_vs_m_" + isobar1Name, histName, arguments.nHistogram2DBins,
+			isobarCombinationHistograms[multibin][isobarCombination] = pyRootPwa.ROOT.TH2D("m_" + isobar2Name + "_vs_m_" + isobar1Name, histName, arguments.nHistogram2DBins,
 			                                                                                arguments.massMin, arguments.massMax, arguments.nHistogram2DBins,
 			                                                                                arguments.massMin, arguments.massMax)
 
 	assert inputFileRanges.keys() == hists.keys()
 
-	for rangeName in inputFileRanges:
+	for multibin in inputFileRanges:
 
+		rangeName = multibin.uniqueStr()
 		pyRootPwa.utils.printInfo("Processing bin range " + rangeName)
 		outputFile.cd(rangeName)
 
-		for dataFileName in inputFileRanges[rangeName]:
+		for dataFileName in inputFileRanges[multibin]:
 
 			# Do all the initialization
 			pyRootPwa.utils.printInfo("Opening input file " + dataFileName)
 			dataFile = pyRootPwa.ROOT.TFile.Open(dataFileName)
 			evtMeta = pyRootPwa.core.eventMetadata.readEventFile(dataFile)
 			dataTree = evtMeta.eventTree()
+			additionalTreeVariables = pyRootPwa.core.additionalTreeVariables()
+			additionalTreeVariables.setBranchAddresses(evtMeta)
 
 			if arguments.weightFile is not None:
-				dataTree.AddFriend(pyRootPwa.config.weightTreeName, arguments.weightFile)
+				dataTree.AddFriend(config.weightTreeName, arguments.weightFile)
 
 			topology.initKinematicsData(evtMeta.productionKinematicsParticleNames(), evtMeta.decayKinematicsParticleNames())
 			nEvents = dataTree.GetEntries()
@@ -327,6 +343,8 @@ if __name__ == "__main__":
 			# Loop over Events
 			for i in range(nEvents):
 				dataTree.GetEntry(i)
+				if not additionalTreeVariables.inBoundaries(multibin.boundaries):
+					continue
 
 				# Read input data
 				topology.readKinematicsData(prodKinMomenta, decayKinMomenta)
@@ -358,7 +376,7 @@ if __name__ == "__main__":
 						mass = parent.lzVec.M()
 						masses.append(mass)
 						if permutations[permutationKey][hist_i][0]:
-							hists[rangeName][hist_i][0].Fill(mass, weight)
+							hists[multibin][hist_i][0].Fill(mass, weight)
 							if hist_i == 0 and xMassHistogram is not None:
 								massSliceHistogram.Fill(mass, weight)
 						if permutations[permutationKey][hist_i][1]:
@@ -366,11 +384,11 @@ if __name__ == "__main__":
 							phi = daughter.lzVec.Phi()
 							theta = daughter.lzVec.Theta()
 							cosTheta = pyRootPwa.ROOT.TMath.Cos(theta)
-							hists[rangeName][hist_i][1].Fill(phi, weight)
-							hists[rangeName][hist_i][2].Fill(cosTheta, weight)
-							hists[rangeName][hist_i][3].Fill(mass, phi, weight)
-							hists[rangeName][hist_i][4].Fill(mass, cosTheta, weight)
-							hists[rangeName][hist_i][5].Fill(cosTheta, phi, weight)
+							hists[multibin][hist_i][1].Fill(phi, weight)
+							hists[multibin][hist_i][2].Fill(cosTheta, weight)
+							hists[multibin][hist_i][3].Fill(mass, phi, weight)
+							hists[multibin][hist_i][4].Fill(mass, cosTheta, weight)
+							hists[multibin][hist_i][5].Fill(cosTheta, phi, weight)
 						hist_i += 1
 
 					for isobarCombination in isobarCombinations:
@@ -378,7 +396,7 @@ if __name__ == "__main__":
 							continue
 						index1 = isobarCombination[0]
 						index2 = isobarCombination[1]
-						isobarCombinationHistograms[rangeName][isobarCombination].Fill(masses[index1], masses[index2], weight)
+						isobarCombinationHistograms[multibin][isobarCombination].Fill(masses[index1], masses[index2], weight)
 
 				progressbar.update(i)
 
@@ -394,11 +412,11 @@ if __name__ == "__main__":
 			xMassCan.Write()
 			xMassCan.Close()
 			allHistograms = []
-			for i in range(len(hists[rangeName])):
-				for j in range(len(hists[rangeName][i])):
-					allHistograms.append(hists[rangeName][i][j])
+			for i in range(len(hists[multibin])):
+				for j in range(len(hists[multibin][i])):
+					allHistograms.append(hists[multibin][i][j])
 			for isobarCombination in isobarCombinations:
-				allHistograms.append(isobarCombinationHistograms[rangeName][isobarCombination])
+				allHistograms.append(isobarCombinationHistograms[multibin][isobarCombination])
 			for hist in allHistograms:
 				canvas = pyRootPwa.ROOT.TCanvas(hist.GetName() + "_canvas", hist.GetTitle(), 1000, 1400)
 				canvas.Divide(1, 2)
