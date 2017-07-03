@@ -115,11 +115,11 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(
 	                                 description="No help text available."
 	                                )
-	parser.add_argument("inputFile", type=str, metavar="inputFile", help="inputFile")
+	parser.add_argument("inputFiles", type=str, metavar="inputFile", nargs='+', help="inputFile(s)")
 	parser.add_argument("outputFile", metavar="output-file", help="path to output file")
 	parser.add_argument("templateFile", metavar="template-file", help="path to template file")
 	parser.add_argument("-b", type=int, action='append', metavar="integralMultiBin(s)", default=[], dest="multiBins",
-	                    help="integral multi-bin to be calculated (default: full range of the input file)")
+	                    help="integral multi-bin to be calculated (default: full range of the first input file)")
 	parser.add_argument("-c", type=str, metavar="config-file", default="rootpwa.config", dest="configFileName", help="path to config file (default: ./rootpwa.config)")
 	parser.add_argument("-g", "--n-bins", type=int, metavar="n-bins", default=100, dest="nHistogramBins", help="number of bins for the histograms (default: 100)")
 	parser.add_argument("-g2d", "--n-2D-bins", type=int, metavar="n-bins", default=50, dest="nHistogram2DBins", help="number of bins for the 2D histograms (default: 50)")
@@ -129,7 +129,7 @@ if __name__ == "__main__":
 	parser.add_argument("-m", "--mass-hist", type=str, metavar="xMassHist", dest="xMassHistogramPath",
 	                    help='histogram of the X mass, specified as pathToRootFile.root/pathOfHistInRootFile')
 	parser.add_argument("--disable-bose-symmetrization", action="store_true", dest="disableBoseSymmetrization", help="do not consider Bose-symmetric permutations")
-	parser.add_argument("--weight-file", type=str, metavar="weightFile", dest="weightFile", help="weightFile")
+	parser.add_argument("--weight-file", action='append', type=str, metavar="weightFile", dest="weightFiles", help="weightFile(s)")
 	arguments = parser.parse_args()
 
 	if arguments.type not in ["data", "acc", "gen"]:
@@ -223,15 +223,19 @@ if __name__ == "__main__":
 	cosBinWidth = '%.2f' % (2000.0 / arguments.nHistogramBins)
 	thetaBinWidth = '%.2f' % (pyRootPwa.ROOT.TMath.TwoPi() / arguments.nHistogramBins)
 	for multibin in multiBins:
-		eventFile = ROOT.TFile.Open(arguments.inputFile)
-		evtMeta = pyRootPwa.core.eventMetadata.readEventFile(eventFile)
-		if 'mass' not in evtMeta.multibinBoundaries():
-			pyRootPwa.utils.printErr("'mass' is not in the multibin boundaries. Aborting...")
-			sys.exit(1)
-		if multibin is None:
-			multibin = pyRootPwa.utils.multiBin(evtMeta.multibinBoundaries())
-		inputFileRanges[multibin] = [ arguments.inputFile ]
-		eventFile.Close()
+		for inputFile in arguments.inputFiles:
+			eventFile = ROOT.TFile.Open(inputFile)
+			evtMeta = pyRootPwa.core.eventMetadata.readEventFile(eventFile)
+			if 'mass' not in evtMeta.multibinBoundaries():
+				pyRootPwa.utils.printErr("'mass' is not in the multibin boundaries. Aborting...")
+				sys.exit(1)
+			if multibin is None:
+				multibin = pyRootPwa.utils.multiBin(evtMeta.multibinBoundaries())
+			if multibin not in inputFileRanges:
+				inputFileRanges[multibin] = [ inputFile ]
+			else:
+				inputFileRanges[multibin].append(inputFile)
+			eventFile.Close()
 		rangeName = multibin.uniqueStr()
 		outputFile.mkdir(rangeName)
 		outputFile.cd(rangeName)
@@ -320,8 +324,14 @@ if __name__ == "__main__":
 			additionalTreeVariables = pyRootPwa.core.additionalTreeVariables()
 			additionalTreeVariables.setBranchAddresses(evtMeta)
 
-			if arguments.weightFile is not None:
-				dataTree.AddFriend(config.weightTreeName, arguments.weightFile)
+			if arguments.weightFiles is not None:
+				if len(arguments.weightFiles) != len(arguments.inputFiles):
+					pyRootPwa.utils.printErr("Different number of weight files and input files")
+					sys.exit(1)
+				dataFileIndex = arguments.inputFiles.index(dataFileName)
+				weightFileName = arguments.weightFiles[dataFileIndex]
+				pyRootPwa.utils.printInfo("Using weight file " + weightFileName)
+				dataTree.AddFriend(config.weightTreeName, weightFileName)
 
 			topology.initKinematicsData(evtMeta.productionKinematicsParticleNames(), evtMeta.decayKinematicsParticleNames())
 			nEvents = dataTree.GetEntries()
@@ -332,7 +342,7 @@ if __name__ == "__main__":
 
 			# Handle weighted MC
 			weight = numpy.array(1, dtype = float)
-			if arguments.weightFile is not None:
+			if arguments.weightFiles is not None:
 				dataTree.SetBranchAddress("weight", weight)
 			else:
 				weight = 1.
@@ -344,6 +354,7 @@ if __name__ == "__main__":
 			for i in range(nEvents):
 				dataTree.GetEntry(i)
 				if not additionalTreeVariables.inBoundaries(multibin.boundaries):
+					progressbar.update(i)
 					continue
 
 				# Read input data
