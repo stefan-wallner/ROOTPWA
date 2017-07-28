@@ -284,7 +284,8 @@ class plotcollection(object):
 		if isinstance(filenameOrRootfile, ROOT.TFile):
 			fileIn = filenameOrRootfile
 		else:
-			fileIn = ROOT.TFile(filenameOrRootfile, "OPEN")
+			filename = os.path.expandvars(os.path.expanduser(filenameOrRootfile))
+			fileIn = ROOT.TFile(filename, "OPEN")
 
 		if not fileIn or not fileIn.IsOpen():
 			printErr("Cannot read from input file")

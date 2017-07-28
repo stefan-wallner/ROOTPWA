@@ -130,6 +130,7 @@ namespace rpwa {
 		 * @param soltionDescription Description for the soltion the fit results belong to
 		 */
 		multibinPlots(const std::vector<rpwa::fitResult>& fitresults, const std::string& label, const std::string& description);
+
 		~multibinPlots() {}
 
 		/***
@@ -169,13 +170,35 @@ namespace rpwa {
 		 */
 		bool load(TDirectory* directory, const bool onlyBest=false);
 
+		/**
+		 * Override the internally stored intensities
+		 * @param intensities Intensities, where the key is the wave name
+		 */
+		void setIntensitySpectra(const std::map<std::string, componentPlot*>& intensities) {_intensities = intensities;}
+
+		/**
+		 * Override the internally stored phases
+		 * @param phases Phase spectra, where the key is the wave name
+		 */
+		void setPhaseSpectra(const std::map<std::string, std::map<std::string,componentPlot*>>& phases) {_phases = phases;}
+
+		/**
+		 * Set the (first) label to the given value
+		 */
+		void setLabel(const std::string& label){ if (_metadata.labels.size() > 0) _metadata.labels[0] = label; else _metadata.labels.push_back(label);}
+
+		/**
+		 * Set the (first) description to the given value
+		 */
+		void setDescription(const std::string& desc){ if (_metadata.descriptions.size() > 0) _metadata.descriptions[0] = desc; else _metadata.descriptions.push_back(desc);}
+
 		/***
 		 * Get intensity spectrum as multigraph.
 		 * If the intensity spectrum does not jet exist, it generates its.
 		 * @param waveNamePattern Any wave-name pattern (sam as in fitResult intensity)
 		 * @return
 		 */
-		componentPlot* intensitySpectrumRegEx(const std::string& waveNamePattern){return _intensitySpectrum(waveNamePattern, waveNamePattern);}
+		componentPlot* intensitySpectrumRegEx(const std::string& waveNamePattern){return _intensitySpectrum(waveNamePattern);}
 
 		/***
 		 * Get intensity spectrum as multigraph.
@@ -183,7 +206,7 @@ namespace rpwa {
 		 * @param waveName any wave name (not regex pattern)
 		 * @return
 		 */
-		componentPlot* intensitySpectrum(const std::string& waveName){return _intensitySpectrum(rpwa::escapeRegExpSpecialChar(waveName), waveName);}
+		componentPlot* intensitySpectrum(const std::string& waveName){return _intensitySpectrum(rpwa::escapeRegExpSpecialChar(waveName));}
 
 		const std::map<std::string, componentPlot*>& intensitySpectra() const {return _intensities;}
 
@@ -289,8 +312,9 @@ namespace rpwa {
 		 *         If xmin or xmax given, calculate the intensity within this range.
 		 *         A x-bin is included in the total intensity if a part of it is within [xmin, xmax]
 		 *         (upper bound > xmin && lower bound < xmax). Thus, the integrated range is >= [xmin, xmax].
+		 *         If multiple solutions are stored, the first one is used to calculated the integral.
 		 */
-		double calcIntensityIntegralRegex(const std::string& waveNamePattern, const double xmin = nan(""), const double xmax = nan(""));
+		double calcIntensityIntegralRegEx(const std::string& waveNamePattern, const double xmin = nan(""), const double xmax = nan(""));
 
 		/***
 		 * @return total intensity for the given wave name.
@@ -298,9 +322,10 @@ namespace rpwa {
 		 *         If xmin or xmax given, calculate the intensity within this range.
 		 *         A x-bin is included in the total intensity if a part of it is within [xmin, xmax]
 		 *         (upper bound > xmin && lower bound < xmax). Thus, the integrated range is >= [xmin, xmax].
+		 *         If multiple solutions are stored, the first one is used to calculated the integral.
 		 */
 		double calcIntensityIntegral(const std::string& waveName, const double xmin = nan(""), const double xmax = nan("")) {
-			return calcIntensityIntegralRegex(rpwa::escapeRegExpSpecialChar(waveName), xmin, xmax);
+			return calcIntensityIntegralRegEx(rpwa::escapeRegExpSpecialChar(waveName), xmin, xmax);
 		}
 
 	private:
@@ -320,10 +345,10 @@ namespace rpwa {
 		 * Get intensity spectrum as multigraph.
 		 * If the intensity spectrum does not jet exist, generates its.
 		 * @param waveNamePattern Any wave-name pattern (sam as in fitResult intensity)
-		 * @param spectrumName name of the spectrum used for internal handling
+		 * @param escapedWaveNamePattern wave-name pattern used when calling fit-results intensity function
 		 * @return
 		 */
-		componentPlot* _intensitySpectrum(const std::string& waveNamePattern, const std::string& spectrumName);
+		componentPlot* _intensitySpectrum(const std::string& waveNamePattern);
 
 
 

@@ -4,6 +4,7 @@
 #include <boost/python.hpp>
 #include <map>
 #include <vector>
+#include <stdexcept>
 
 #include <TTree.h>
 #include <TPython.h>
@@ -85,6 +86,26 @@ namespace {
 	}
 
 
+	void
+	componentPlot_addForComponent(rpwa::componentPlot& self, bp::object& typeIdOrName, const std::string& label, PyObject* pyPlot) {
+		rpwa::componentPlot::plotType* plot = rpwa::py::convertFromPy<rpwa::componentPlot::plotType*>(pyPlot);
+		bp::extract<int> extractId(typeIdOrName);
+		if (extractId.check()) {
+			const int id = extractId;
+			self.addForComponent(id, label, plot);
+		} else {
+			bp::extract<std::string> extractName(typeIdOrName);
+			if (extractName.check()) {
+				const std::string& name = extractName;
+				self.addForComponent(name, label, plot);
+			} else {
+				printErr<< "Cannot add the given component to the componentPlot, because the component type cannot be converted" << std::endl;
+				throw std::exception();
+			}
+		}
+	}
+
+
 	boost::shared_ptr<rpwa::multibinPlots>
 	multibinPlots_constructor(const bp::list& fitResults, const bp::str& label, const bp::str& desc) {
 
@@ -114,6 +135,30 @@ namespace {
 			plotsInMultibinsC.push_back(bp::extract<rpwa::multibinPlots*>(plotsInMultibins[i]));
 		}
 		return self.buildMultibinSummedPlots(plotsInMultibinsC);
+	}
+
+
+	void
+	multibinPlots_setIntensities(rpwa::multibinPlots& self, bp::dict& pyIntensities){
+		std::map<std::string, rpwa::componentPlot*> intensities;
+		bp::list pyWaveNames = pyIntensities.keys();
+		for(int i = 0; i < bp::len(pyWaveNames); ++i){
+			const std::string waveName = bp::extract<std::string>(pyWaveNames[i]);
+			rpwa::componentPlot* plot;
+			bp::extract<rpwa::componentPlot*> componentsplot(pyIntensities[pyWaveNames[i]]);
+			if(componentsplot.check()){
+				plot = componentsplot();
+			} else {
+				bp::object o = pyIntensities[pyWaveNames[i]];
+				plot = static_cast<rpwa::componentPlot*>(rpwa::py::convertFromPy<rpwa::componentPlot::baseType*>(o.ptr()));
+				if (plot == nullptr){ // it was not a componentPlot::baseType
+					printErr << "Cannot convert plot from Python to Cpp" << std::endl;
+					throw std::exception();
+				}
+			}
+			intensities[waveName] = plot;
+		}
+		self.setIntensitySpectra(intensities);
 	}
 
 
@@ -231,12 +276,16 @@ rpwa::py::exportPlotcollection() {
 	        .def("getMassindepComponent", &componentPlot_getMassindepComponent)
 	        .def("getComponent", &componentPlot_getComponent)
 	        .def("getComponentNames", &componentPlot_getComponentNames)
+	        .def("addForComponent", &componentPlot_addForComponent)
 	        ;
 	bp::class_<rpwa::multibinPlots, boost::shared_ptr<rpwa::multibinPlots>>("multibinPlots")
 	        .def(bp::init<const rpwa::multibinPlots&>())
 	        .def("__init__", bp::make_constructor(&multibinPlots_constructor))
 	        .def("buildDefaultPlots", &multibinPlots_buildDefaultPlots, bp::arg("waveNamePatterns") = bp::list())
 	        .def("buildMultibinSummedPlots", &multibinPlots_buildMultibinSummedPlots)
+	        .def("setIntensitySpectra", &multibinPlots_setIntensities)
+	        .def("setLabel", &rpwa::multibinPlots::setLabel)
+	        .def("setDescription", &rpwa::multibinPlots::setDescription)
 	        .def("mergePlotsInto", &rpwa::multibinPlots::mergePlotsInto)
 	        .def("intensitySpectrum", &rpwa::multibinPlots::intensitySpectrum, bp::return_internal_reference<>())
 	        .def("intensitySpectrumRegEx", &rpwa::multibinPlots::intensitySpectrumRegEx, bp::return_internal_reference<>())
@@ -249,6 +298,10 @@ rpwa::py::exportPlotcollection() {
 	        .def("addAdditionalPlot", &multibinPlots_addAdditionalPlot)
 	        .def("descriptions", &multibinPlots_descriptions)
 	        .def("labels", &multibinPlots_labels)
+	        .def("calcIntensityIntegral", &rpwa::multibinPlots::calcIntensityIntegral,
+	             (bp::args("waveName"), bp::args("xmin") = nan(""), bp::args("xmax") = nan("")))
+	        .def("calcIntensityIntegralRegEx", &rpwa::multibinPlots::calcIntensityIntegralRegEx,
+	             (bp::args("waveNamePattern"), bp::args("xmin") = nan(""), bp::args("xmax") = nan("")))
 	        ;
 	bp::def("shiftPhaseSpectrumInRange", &plottingtools_shiftPhaseSpectrumInRange);
 	bp::def("makePhaseContinousWithinRange", &plottingtools_makePhaseContinousWithinRange, (bp::args("plot"), bp::arg("nTrails") = 50));

@@ -26,7 +26,7 @@ const std::vector<std::string> rpwa::plotComponents::names = {
 };
 
 
-rpwa::multibinPlots::multibinPlots() :
+rpwa::multibinPlots::multibinPlots():
 		_initialized(false) {
 }
 
@@ -475,12 +475,12 @@ rpwa::multibinPlots::load(TDirectory* directory, const bool onlyBest) {
 
 
 double
-rpwa::multibinPlots::calcIntensityIntegralRegex(const std::string& waveNamePattern, const double xmin, const double xmax) {
+rpwa::multibinPlots::calcIntensityIntegralRegEx(const std::string& waveNamePattern, const double xmin, const double xmax) {
 	double totIntensity = 0.0;
 	if (waveNamePattern.size() > 0) {
 		componentPlot* plots = intensitySpectrumRegEx(waveNamePattern);
 		if (plots != nullptr) {
-			rpwa::componentPlot::plotType* plot = plots->getMassindepComponent();
+			rpwa::componentPlot::plotType* plot = plots->getMassindepComponents()[_metadata.labels[0]];
 			if (plot != nullptr) {
 				totIntensity = 0.0;
 				for (int i = 0; i < plot->GetN(); ++i) {
@@ -496,10 +496,9 @@ rpwa::multibinPlots::calcIntensityIntegralRegex(const std::string& waveNamePatte
 			}
 		} else {
 			printErr<< "Can not calculate total intensity for wave '" << waveNamePattern
-			<< "'. Cannot find waveName '" << waveNamePattern << "' !" << std::endl;
+			<< "' (cannot find waveName '" << waveNamePattern << "' )!" << std::endl;
 		}
-	}
-	{ // sum of all waves
+	} else { // sum of all waves
 		totIntensity = 0.0;
 		for (const auto& wave : waveNames()) {
 			totIntensity += calcIntensityIntegral(wave, xmin, xmax);
@@ -510,20 +509,16 @@ rpwa::multibinPlots::calcIntensityIntegralRegex(const std::string& waveNamePatte
 
 
 componentPlot*
-rpwa::multibinPlots::_intensitySpectrum(const std::string& waveNamePattern, const std::string& spectrumName) {
-	if (_intensities.find(spectrumName) != _intensities.end()) {
-		return _intensities.at(spectrumName);
+rpwa::multibinPlots::_intensitySpectrum(const std::string& waveNamePattern) {
+	if (_intensities.find(waveNamePattern) != _intensities.end()) {
+		return _intensities.at(waveNamePattern);
 	} else {
-		if(hasMultipleSolutions()){
-			printErr << "Cannot build intensity spectra for multibin plots with more than one solution" << std::endl;
-			return nullptr;
-		}
 		componentPlot* plots = nullptr;
 		componentPlot::plotType* p = genIntensitySpectrumRegEx(waveNamePattern);
 		if (p != nullptr) { // if we can generate the intensity spectrum
-			plots = static_cast<componentPlot*>(new componentPlot::baseType(spectrumName.c_str(), spectrumName.c_str()));
+			plots = static_cast<componentPlot*>(new componentPlot::baseType(waveNamePattern.c_str(), waveNamePattern.c_str()));
 			plots->addForComponent(plotComponents::massIndependent, label(), p);
-			_intensities[spectrumName] = plots;
+			_intensities[waveNamePattern] = plots;
 		}
 		return plots;
 	}

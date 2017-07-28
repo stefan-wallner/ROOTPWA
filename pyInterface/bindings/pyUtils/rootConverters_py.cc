@@ -4,6 +4,7 @@
 #include<TF1.h>
 #include<TFile.h>
 #include<TGraphErrors.h>
+#include<TMultiGraph.h>
 #include<TDirectory.h>
 #include<TLorentzRotation.h>
 #include<TPython.h>
@@ -144,6 +145,11 @@ void rpwa::py::exportRootConverters() {
 
 	bp::def(
 		"__RootConverters_convertFromPy_TGraphErrors", &rpwa::py::convertFromPy<TGraphErrors*>
+		, bp::return_internal_reference<1>()
+	);
+
+	bp::def(
+		"__RootConverters_convertFromPy_TMultiGraph", &rpwa::py::convertFromPy<TMultiGraph*>
 		, bp::return_internal_reference<1>()
 	);
 
