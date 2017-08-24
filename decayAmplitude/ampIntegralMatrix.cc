@@ -345,8 +345,14 @@ ampIntegralMatrix::integrate(const vector<const amplitudeMetadata*>& ampMetadata
 	// set amplitude tree leafs
 	vector<amplitudeTreeLeaf*> ampTreeLeafs(_nmbWaves);
 	for(size_t waveIndex = 0; waveIndex < _nmbWaves; waveIndex++) {
-		ampTreeLeafs[waveIndex] = NULL;
+		ampTreeLeafs[waveIndex] = nullptr;
 		ampMetadata[waveIndex]->amplitudeTree()->SetBranchAddress(amplitudeMetadata::amplitudeLeafName.c_str(), &ampTreeLeafs[waveIndex]);
+		// set autoflush, cache, and max. basket size
+		// A cache size of 10 MB was far too small and puts lots of load to the storage server
+		const int cacheSize = static_cast<int>(100*1024*1024/_nmbWaves);
+		ampMetadata[waveIndex]->amplitudeTree()->SetAutoFlush(-cacheSize);
+		ampMetadata[waveIndex]->amplitudeTree()->OptimizeBaskets(cacheSize);
+		ampMetadata[waveIndex]->amplitudeTree()->SetCacheSize(cacheSize);
 	}
 
 	// make sure that either all or none of the waves have description (needed?)

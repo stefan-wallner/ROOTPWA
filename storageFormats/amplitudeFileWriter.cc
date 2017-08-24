@@ -59,6 +59,8 @@ bool rpwa::amplitudeFileWriter::initialize(TFile&                             ou
 	_metadata._amplitudeTree = new TTree(treeName.c_str(), treeName.c_str());
 	_ampTreeLeaf = new rpwa::amplitudeTreeLeaf();
 	_metadata._amplitudeTree->Branch(rpwa::amplitudeMetadata::amplitudeLeafName.c_str(), &_ampTreeLeaf, buffsize, splitlevel);
+	_metadata._amplitudeTree->SetAutoSave(-600000000); // set autosave and autoflush to 600MB to avoid having multiple keys
+	_metadata._amplitudeTree->SetAutoFlush(-600000000);
 
 	_initialized = true;
 	return _initialized;
