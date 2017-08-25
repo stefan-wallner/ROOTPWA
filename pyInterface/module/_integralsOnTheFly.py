@@ -86,30 +86,7 @@ def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, mul
 		return False
 
 	metadataObject =  pyRootPwa.core.ampIntegralMatrixMetadata()
-	eventFile = pyRootPwa.ROOT.TFile.Open(eventFileName, "READ")
-	if not eventFile:
-		pyRootPwa.utils.printErr("could not open event file. Aborting...")
-		return False
-	eventMeta  = pyRootPwa.core.eventMetadata.readEventFile(eventFile)
-	prodNames  = eventMeta.productionKinematicsParticleNames()
-	decayNames = eventMeta.decayKinematicsParticleNames()
-	amplitudes, waveNames = _getAmplitudes(keyFileNameList, prodNames, decayNames, metadataObject)
-	if not amplitudes or not waveNames:
-		pyRootPwa.utils.printErr("could initialize amplitudes. Aborting...")
-		return False
-	eventTree = eventMeta.eventTree()
-	nEvents   = eventTree.GetEntries()
-	minEvent = startEvent
-	maxEvent = nEvents
-	if maxNmbEvents	> -1:
-		maxEvent = min(maxEvent, startEvent + maxNmbEvents)
-	if not metadataObject.addEventMetadata(eventMeta):
-		pyRootPwa.utils.printErr("could not add event metadata to integral metadata. Aborting...")
-		return False
-	if not multibinBoundaries:
-		multibinBoundaries = eventMeta.multibinBoundaries()
-		if not multibinBoundaries:
-			pyRootPwa.utils.printWarn("no binning map found.")
+	metadataObject.setGitHash(pyRootPwa.core.gitHash())
 	if "mass" in multibinBoundaries:
 		if multibinBoundaries["mass"][0] > 200.:
 			multibinBoundaries["mass"] = (multibinBoundaries["mass"][0]/1000.,multibinBoundaries["mass"][1]/1000.)
@@ -138,7 +115,7 @@ def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, mul
 			return False
 		if not multibinBoundaries:
 			multibinBoundaries = eventMeta.multibinBoundaries()
-			if len(multibinBoundaries) == 0:
+			if not multibinBoundaries:
 				pyRootPwa.utils.printWarn("no binning map found.")
 		integralMatrix, hashers = _integrate(amplitudes, eventTree, waveNames, minEvent, maxEvent, multibinBoundaries)
 		if integralMatrix.nmbEvents() == 0:
