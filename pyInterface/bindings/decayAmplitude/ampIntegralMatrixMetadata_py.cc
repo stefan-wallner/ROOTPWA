@@ -110,6 +110,7 @@ void rpwa::py::exportAmpIntegralMatrixMetadata() {
 		.def("multibinBoundaries", &ampIntegralMatrixMetadata_multibinBoundaries)
 		.def("addEventMetadata", &ampIntegralMatrixMetadata::addEventMetadata, bp::arg("eventMetadata"))
 		.def("addAmplitudeHash", &ampIntegralMatrixMetadata::addAmplitudeHash, bp::arg("amplitudehash"))
+		.def("hasAmplitudeHash", &ampIntegralMatrixMetadata::hasAmplitudeHash, bp::arg("amplitudehash"))
 		.def("setHash",  &ampIntegralMatrixMetadata::setHash)
 		.def("recalculateHash", &rpwa::ampIntegralMatrixMetadata::recalculateHash)
 		.def("setGitHash",  &ampIntegralMatrixMetadata::setGitHash)

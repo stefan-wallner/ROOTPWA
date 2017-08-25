@@ -3,14 +3,20 @@ import pyRootPwa.utils
 import pyRootPwa.core
 
 
-def _getAmplitudes(keyFileNameList, prodNames, decayNames, integralMetaData):
+def _getAmplitudes(keyFileNameList, prodNames, decayNames, integralMetaData, addKeyfilecontent):
 	amplitudes      = []
 	waveNames       = []
 	for keyFile in keyFileNameList:
 		waveDescription = pyRootPwa.core.waveDescription.parseKeyFile(keyFile[0])[keyFile[1]]
-		if not integralMetaData.addKeyFileContent(waveDescription.keyFileContent()):
-			pyRootPwa.utils.printWarn("could not add keyfile content. Aborting...")
-			return False, False
+		if addKeyfilecontent:
+			if not integralMetaData.addKeyFileContent(waveDescription.keyFileContent()):
+				pyRootPwa.utils.printWarn("could not add keyfile content. Aborting...")
+				return False, False
+		else:
+			if not integralMetaData.hasKeyFileContent(waveDescription.keyFileContent()):
+				pyRootPwa.utils.printErr("keyfile content of additional eventFiledID missing in first eventFieldID.")
+				return False, False
+
 		(result, amplitude) = waveDescription.constructAmplitude()
 		if not result:
 			pyRootPwa.utils.printErr('could not construct amplitude for keyfile "' + keyFile[0] + '" (ID '+str(keyFile[1])+'). Aborting...')
@@ -59,18 +65,20 @@ def _integrate(amplitudes, eventTree, waveNames, minEvent, maxEvent, multibinBou
 			topo = amplitude.decayTopology()
 			if not topo.readKinematicsData(prodKinMomenta, decayKinMomenta):
 				pyRootPwa.utils.printErr("could not load kinematics data. Aborting...")
-				return False, False
+				return None, None
 			ampl = amplitude()
 			hashers[amp_i].Update(ampl)
 			ampWaveNameMap[waveNames[amp_i]] = ampl
 		if not integralMatrix.addEvent(ampWaveNameMap):
 			pyRootPwa.utils.printErr("could not add event to integral matrix. Aborting...")
-			return False, False
+			return None, None
 	pyRootPwa.utils.printInfo(str(skippedEvents) + " events rejected because they are outside the binning.")
 	return integralMatrix, hashers
 
 
-def calcIntegralsOnTheFly(integralFileName, eventFileName, keyFileNameList, multibinBoundaries = None, maxNmbEvents = -1, startEvent = 0):
+def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, multibinBoundaries = None, maxNmbEvents = -1, startEvent = 0):
+	if not isinstance(eventFileNames, list):
+		eventFileNames = [eventFileNames]
 
 	outFile = pyRootPwa.ROOT.TFile.Open(integralFileName, "CREATE")
 	if not outFile: # Do this up here. Without the output file, nothing else makes sense
@@ -106,23 +114,57 @@ def calcIntegralsOnTheFly(integralFileName, eventFileName, keyFileNameList, mult
 		if multibinBoundaries["mass"][0] > 200.:
 			multibinBoundaries["mass"] = (multibinBoundaries["mass"][0]/1000.,multibinBoundaries["mass"][1]/1000.)
 	metadataObject.setMultibinBoundaries(multibinBoundaries)
-	integralMatrix, hashers = _integrate(amplitudes, eventTree, waveNames, minEvent, maxEvent, multibinBoundaries)
-	if not integralMatrix or not hashers:
-		pyRootPwa.utils.printErr("could not integrate. Aborting...")
-		return False
+	integrals = []
+	for iEventFileName, eventFileName in enumerate(eventFileNames):
+		eventFile = pyRootPwa.ROOT.TFile.Open(eventFileName, "READ")
+		if not eventFile:
+			pyRootPwa.utils.printErr("could not open event file. Aborting...")
+			return False
+		eventMeta  = pyRootPwa.core.eventMetadata.readEventFile(eventFile)
+		prodNames  = eventMeta.productionKinematicsParticleNames()
+		decayNames = eventMeta.decayKinematicsParticleNames()
+		amplitudes, waveNames = _getAmplitudes(keyFileNameList, prodNames, decayNames, metadataObject, addKeyfilecontent=iEventFileName==0)
+		if not amplitudes or not waveNames:
+			pyRootPwa.utils.printErr("could initialize amplitudes. Aborting...")
+			return False
+		eventTree = eventMeta.eventTree()
+		nEvents   = eventTree.GetEntries()
+		minEvent = startEvent
+		maxEvent = nEvents
+		if maxNmbEvents	> -1:
+			maxEvent = min(maxEvent, startEvent + maxNmbEvents)
+		if not metadataObject.addEventMetadata(eventMeta):
+			pyRootPwa.utils.printErr("could not add event metadata to integral metadata. Aborting...")
+			return False
+		if not multibinBoundaries:
+			multibinBoundaries = eventMeta.multibinBoundaries()
+			if len(multibinBoundaries) == 0:
+				pyRootPwa.utils.printWarn("no binning map found.")
+		integralMatrix, hashers = _integrate(amplitudes, eventTree, waveNames, minEvent, maxEvent, multibinBoundaries)
+		if integralMatrix.nmbEvents() == 0:
+			continue # no events from the multibin found in this event file -> skipping it
+		if not integralMatrix or not hashers:
+			pyRootPwa.utils.printErr("could not integrate. Aborting...")
+			return False
+		for hasher in hashers:
+			if not metadataObject.addAmplitudeHash(hasher.hash()):
+				pyRootPwa.utils.printWarn("could not add the amplitude hash.")
+				# This error is not fatal, since in special cases the same hash can appear twice:
+				# e.g. in freed-isobar analyses with spin zero, the angular dependences are constant
+				# and the shape is either 0 or 1. If two such waves accidentally have the same number
+				# of events, both will also have the same hash.
+		integrals.append(integralMatrix)
+		eventFile.Close()
+
+	integralMatrix = integrals[0]
+	if len(integrals) > 1:
+		for integral in integrals[1:]:
+			integralMatrix += integral
 	if not metadataObject.setAmpIntegralMatrix(integralMatrix):
 		pyRootPwa.utils.printErr("could not add the integral matrix to the metadata object. Aborting...")
 		return False
-	for hasher in hashers:
-		if not metadataObject.addAmplitudeHash(hasher.hash()):
-			pyRootPwa.utils.printWarn("could not add the amplitude hash.")
-			# This error is not fatal, since in special cases the same hash can appear twice:
-			# e.g. in freed-isobar analyses with spin zero, the angular dependences are constant
-			# and the shape is either 0 or 1. If two such waves accidentally have the same number
-			# of events, both will also have the same hash.
 	if not metadataObject.writeToFile(outFile):
 		pyRootPwa.utils.printErr("could not write integral objects to file. Aborting...")
 		return False
 	outFile.Close()
-	eventFile.Close()
 	return True
