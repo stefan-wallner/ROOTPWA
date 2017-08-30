@@ -532,6 +532,7 @@ void rpwa::py::exportMassDependence() {
 		)
 		.def("__call__", &rpwa::massDependence::operator())
 		.def("name", bp::pure_virtual(&rpwa::massDependence::name))
+		.def("parentLabelForWaveName", &rpwa::massDependence::parentLabelForWaveName)
 		.add_static_property("debugMassDependence", &rpwa::massDependence::debug, &rpwa::massDependence::setDebug);
 
 	bp::class_<flatMassDependenceWrapper, bp::bases<rpwa::massDependence> >("flatMassDependence")
@@ -539,7 +540,8 @@ void rpwa::py::exportMassDependence() {
 		.def("amp", &flatMassDependenceWrapper::amp, &flatMassDependenceWrapper::default_amp)
 		.def("amp", &rpwa::flatMassDependence::amp)
 		.def("name", &flatMassDependenceWrapper::name, &flatMassDependenceWrapper::default_name)
-		.def("name", &rpwa::flatMassDependence::name);
+		.def("name", &rpwa::flatMassDependence::name)
+		.def("parentLabelForWaveName", &rpwa::flatMassDependence::parentLabelForWaveName);
 
 	bp::class_<binnedMassDependenceWrapper, bp::bases<rpwa::massDependence> >("binnedMassDependence", bp::init<const double,const double>())
 		.def(bp::self_ns::str(bp::self))
@@ -553,56 +555,64 @@ void rpwa::py::exportMassDependence() {
 		.def("amp", &relativisticBreitWignerWrapper::amp, &relativisticBreitWignerWrapper::default_amp)
 		.def("amp", &rpwa::relativisticBreitWigner::amp)
 		.def("name", &relativisticBreitWignerWrapper::name, &relativisticBreitWignerWrapper::default_name)
-		.def("name", &rpwa::relativisticBreitWigner::name);
+		.def("name", &rpwa::relativisticBreitWigner::name)
+		.def("parentLabelForWaveName", &rpwa::relativisticBreitWigner::parentLabelForWaveName);
 
 	bp::class_<constWidthBreitWignerWrapper, bp::bases<rpwa::massDependence> >("constWidthBreitWigner")
 		.def(bp::self_ns::str(bp::self))
 		.def("amp", &constWidthBreitWignerWrapper::amp, &constWidthBreitWignerWrapper::default_amp)
 		.def("amp", &rpwa::constWidthBreitWigner::amp)
 		.def("name", &constWidthBreitWignerWrapper::name, &constWidthBreitWignerWrapper::default_name)
-		.def("name", &rpwa::constWidthBreitWigner::name);
+		.def("name", &rpwa::constWidthBreitWigner::name)
+		.def("parentLabelForWaveName", &rpwa::constWidthBreitWigner::parentLabelForWaveName);
 
 	bp::class_<rhoBreitWignerWrapper, bp::bases<rpwa::massDependence> >("rhoBreitWigner")
 		.def(bp::self_ns::str(bp::self))
 		.def("amp", &rhoBreitWignerWrapper::amp, &rhoBreitWignerWrapper::default_amp)
 		.def("amp", &rpwa::rhoBreitWigner::amp)
 		.def("name", &rhoBreitWignerWrapper::name, &rhoBreitWignerWrapper::default_name)
-		.def("name", &rpwa::rhoBreitWigner::name);
+		.def("name", &rpwa::rhoBreitWigner::name)
+		.def("parentLabelForWaveName", &rpwa::rhoBreitWigner::parentLabelForWaveName);
 
 	bp::class_<f0980BreitWignerWrapper, bp::bases<rpwa::massDependence> >("f0980BreitWigner")
 		.def(bp::self_ns::str(bp::self))
 		.def("amp", &f0980BreitWignerWrapper::amp, &f0980BreitWignerWrapper::default_amp)
 		.def("amp", &rpwa::f0980BreitWigner::amp)
 		.def("name", &f0980BreitWignerWrapper::name, &f0980BreitWignerWrapper::default_name)
-		.def("name", &rpwa::f0980BreitWigner::name);
+		.def("name", &rpwa::f0980BreitWigner::name)
+		.def("parentLabelForWaveName", &rpwa::f0980BreitWigner::parentLabelForWaveName);
 
 	bp::class_<piPiSWaveAuMorganPenningtonMWrapper, bp::bases<rpwa::massDependence> >("piPiSWaveAuMorganPenningtonM")
 		.def(bp::self_ns::str(bp::self))
 		.def("amp", &piPiSWaveAuMorganPenningtonMWrapper::amp, &piPiSWaveAuMorganPenningtonMWrapper::default_amp)
 		.def("amp", &rpwa::piPiSWaveAuMorganPenningtonM::amp)
 		.def("name", &piPiSWaveAuMorganPenningtonMWrapper::name, &piPiSWaveAuMorganPenningtonMWrapper::default_name)
-		.def("name", &rpwa::piPiSWaveAuMorganPenningtonM::name);
+		.def("name", &rpwa::piPiSWaveAuMorganPenningtonM::name)
+		.def("parentLabelForWaveName", &rpwa::piPiSWaveAuMorganPenningtonM::parentLabelForWaveName);
 
 	bp::class_<piPiSWaveAuMorganPenningtonVesWrapper, bp::bases<rpwa::massDependence> >("piPiSWaveAuMorganPenningtonVes")
 		.def(bp::self_ns::str(bp::self))
 		.def("amp", &piPiSWaveAuMorganPenningtonVesWrapper::amp, &piPiSWaveAuMorganPenningtonVesWrapper::default_amp)
 		.def("amp", &rpwa::piPiSWaveAuMorganPenningtonVes::amp)
 		.def("name", &piPiSWaveAuMorganPenningtonVesWrapper::name, &piPiSWaveAuMorganPenningtonVesWrapper::default_name)
-		.def("name", &rpwa::piPiSWaveAuMorganPenningtonVes::name);
+		.def("name", &rpwa::piPiSWaveAuMorganPenningtonVes::name)
+		.def("parentLabelForWaveName", &rpwa::piPiSWaveAuMorganPenningtonVes::parentLabelForWaveName);
 
 	bp::class_<piPiSWaveAuMorganPenningtonKachaevWrapper, bp::bases<rpwa::massDependence> >("piPiSWaveAuMorganPenningtonKachaev")
 		.def(bp::self_ns::str(bp::self))
 		.def("amp", &piPiSWaveAuMorganPenningtonKachaevWrapper::amp, &piPiSWaveAuMorganPenningtonKachaevWrapper::default_amp)
 		.def("amp", &rpwa::piPiSWaveAuMorganPenningtonKachaev::amp)
 		.def("name", &piPiSWaveAuMorganPenningtonKachaevWrapper::name, &piPiSWaveAuMorganPenningtonKachaevWrapper::default_name)
-		.def("name", &rpwa::piPiSWaveAuMorganPenningtonKachaev::name);
+		.def("name", &rpwa::piPiSWaveAuMorganPenningtonKachaev::name)
+		.def("parentLabelForWaveName", &rpwa::piPiSWaveAuMorganPenningtonKachaev::parentLabelForWaveName);
 
 	bp::class_<rhoPrimeMassDepWrapper, bp::bases<rpwa::massDependence> >("rhoPrimeMassDep")
 		.def(bp::self_ns::str(bp::self))
 		.def("amp", &rhoPrimeMassDepWrapper::amp, &rhoPrimeMassDepWrapper::default_amp)
 		.def("amp", &rpwa::rhoPrimeMassDep::amp)
 		.def("name", &rhoPrimeMassDepWrapper::name, &rhoPrimeMassDepWrapper::default_name)
-		.def("name", &rpwa::rhoPrimeMassDep::name);
+		.def("name", &rpwa::rhoPrimeMassDep::name)
+		.def("parentLabelForWaveName", &rpwa::rhoPrimeMassDep::parentLabelForWaveName);
 
 	bp::class_<KPiSGLASSWrapper, bp::bases<rpwa::massDependence> >("KPiSGLASS", bp::init<const double,const double,const double,
 	                                                                                     const double,const double,const double,
