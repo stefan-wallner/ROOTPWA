@@ -256,6 +256,10 @@ class plotcollection(object):
 		else:
 			fileOut = ROOT.TFile(filenameOrRootfile, "CREATE")
 
+		if not fileOut.IsOpen():
+			pyRootPwa.utils.printErr("Cannot open output file")
+			return False
+
 		pyRootPwa.utils.printInfo("Write plot collection to file '{0}'".format(fileOut.GetName()))
 
 
@@ -274,6 +278,7 @@ class plotcollection(object):
 				dirOut = dirSummedVariable.mkdir(dirName)
 				self._multibinSummedPlots[variable][multibin].write(dirOut)
 		fileOut.Close()
+		return True
 
 
 	def load(self, filenameOrRootfile):
