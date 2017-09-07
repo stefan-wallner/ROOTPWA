@@ -105,7 +105,7 @@ rpwa::multibinPlots::multibinPlots(const std::vector<rpwa::fitResult>& fitresult
 
 
 void
-rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePatterns) {
+rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePatterns, const size_t nRefWaves) {
 	// build intensity plots
 	for (const auto& waveName : _metadata.waveNames) {
 		intensitySpectrum(waveName); // triggers generation of intensity spectrum
@@ -116,9 +116,11 @@ rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePa
 		intensitySpectrumRegEx(wavenamePattern);
 	}
 
+	std::vector<std::string> waveNamesOrderedByIntensity = waveNamesSortedByIntensity();
 	// build phase plots
 	for (const auto& waveNameA : _metadata.waveNames) {
-		for (const auto& waveNameB : _metadata.waveNames) {
+		for(size_t iWaveNameB = 0; iWaveNameB < std::min(nRefWaves,waveNamesOrderedByIntensity.size()); ++iWaveNameB){
+			const std::string& waveNameB = waveNamesOrderedByIntensity[iWaveNameB];
 			phaseSpectrum(waveNameA, waveNameB); // triggers generation of phase spectrum
 		}
 	}
@@ -622,6 +624,19 @@ rpwa::multibinPlots::getAdditionalPlot(const std::string& name) {
 		return it->second;
 	}
 	return nullptr;
+}
+
+
+std::vector<std::string>
+rpwa::multibinPlots::waveNamesSortedByIntensity()
+{
+	std::vector<std::string> waveNames = this->waveNames();
+	// build map of intensities
+	std::map<std::string, double> intensitys;
+	for(const auto& waveName: waveNames) intensitys[waveName] = calcIntensityIntegral(waveName);
+	std::sort(waveNames.begin(), waveNames.end(),
+	          [&intensitys](const std::string& a, const std::string& b) -> bool {return intensitys[a] > intensitys[b];});
+	return waveNames;
 }
 
 

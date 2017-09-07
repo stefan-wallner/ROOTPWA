@@ -138,8 +138,9 @@ namespace rpwa {
 		 * Requires fit results to be loaded.
 		 * Also builds spin-totals of I^G J^PC M^e and subsets
 		 * @param waveNamePatterns additional wave-name patterns for which generate intensity spectra will be generated
+		 * @param nRefWaves Rel. phases are builded for all waves w.r.t. the nRefWaves largest waves
 		 */
-		void buildDefaultPlots(const std::vector<std::string> waveNamePatterns = {});
+		void buildDefaultPlots(const std::vector<std::string> waveNamePatterns = {}, const size_t nRefWaves = 16);
 
 		/***
 		 * Build the multibin-summed spectra from the list of plots in the individual multibins.
@@ -280,6 +281,11 @@ namespace rpwa {
 		 * @return ordered list of wave names
 		 */
 		const std::vector<std::string>& waveNames() const {return _metadata.waveNames;}
+
+		/**
+		 * @return list of wave names ordered by intensity (largest intensity first)
+		 */
+		std::vector<std::string> waveNamesSortedByIntensity();
 
 		/***
 		 * @return descriptions of the multibinPlots object
