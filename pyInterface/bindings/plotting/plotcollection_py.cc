@@ -236,6 +236,10 @@ namespace {
 		return false;
 	}
 
+	rpwa::componentPlot* multibinPlots_negLogLikeSpectrum(rpwa::multibinPlots& self){
+		return self.negLogLikeSpectrum();
+	}
+
 
 	PyObject*
 	multibinPlots_getAdditionalPlot(rpwa::multibinPlots& self, const bp::str& name) {
@@ -254,6 +258,7 @@ namespace {
 	plottingtools_makePhaseContinousWithinRange(PyObject* plot, const int nTrails) {
 		return rpwa::plottingtools::makePhaseContinousWithinRange(rpwa::py::convertFromPy<rpwa::componentPlot::plotType*>(plot), nTrails);
 	}
+
 }
 
 
@@ -302,6 +307,7 @@ rpwa::py::exportPlotcollection() {
 	             (bp::args("waveName"), bp::args("xmin") = nan(""), bp::args("xmax") = nan("")))
 	        .def("calcIntensityIntegralRegEx", &rpwa::multibinPlots::calcIntensityIntegralRegEx,
 	             (bp::args("waveNamePattern"), bp::args("xmin") = nan(""), bp::args("xmax") = nan("")))
+	        .def("negLogLikeSpectrum", &multibinPlots_negLogLikeSpectrum, bp::return_internal_reference<>())
 	        ;
 	bp::def("shiftPhaseSpectrumInRange", &plottingtools_shiftPhaseSpectrumInRange);
 	bp::def("makePhaseContinousWithinRange", &plottingtools_makePhaseContinousWithinRange, (bp::args("plot"), bp::arg("nTrails") = 50));

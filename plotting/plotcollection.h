@@ -334,6 +334,10 @@ namespace rpwa {
 			return calcIntensityIntegralRegEx(rpwa::escapeRegExpSpecialChar(waveName), xmin, xmax);
 		}
 
+		componentPlot* negLogLikeSpectrum() const {return _negLogLikeSpectrum;}
+		componentPlot* negLogLikeSpectrum();
+
+
 	private:
 		bool _initialized;
 		std::map<std::string, componentPlot*> _intensities;
@@ -346,6 +350,8 @@ namespace rpwa {
 		// the fit attempts are ordered by first convergence and then by neg. log-likelihood
 		std::map< double, std::vector< fitResult > > _fitResultsInMassbins;
 		rpwa::multibinplotsMetadata _metadata;
+		componentPlot* _negLogLikeSpectrum;
+		// TODO: Add Likelihood spread
 
 		/***
 		 * Get intensity spectrum as multigraph.

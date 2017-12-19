@@ -27,12 +27,14 @@ const std::vector<std::string> rpwa::plotComponents::names = {
 
 
 rpwa::multibinPlots::multibinPlots():
-		_initialized(false) {
+		_initialized(false),
+		_negLogLikeSpectrum(nullptr){
 }
 
 
 rpwa::multibinPlots::multibinPlots(const std::vector<rpwa::fitResult>& fitresults, const std::string& label, const std::string& description) :
-		_initialized(true) {
+		_initialized(true),
+		_negLogLikeSpectrum(nullptr){
 
 	if (fitresults.size() == 0) {
 		printErr<< "fitresults is empty" << std::endl;
@@ -124,6 +126,9 @@ rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePa
 			phaseSpectrum(waveNameA, waveNameB); // triggers generation of phase spectrum
 		}
 	}
+
+	// build plots containing fit information
+	negLogLikeSpectrum();
 }
 
 
@@ -212,6 +217,9 @@ rpwa::multibinPlots::buildMultibinSummedPlots(const std::vector<const multibinPl
 		_intensities[intensityName] = summedPlot;
 	}
 
+	// build dummy plots for some stuff
+	_negLogLikeSpectrum = static_cast<componentPlot*>(new componentPlot::baseType("negLogLikeSpectrum", "neg. log(likelihood)"));
+
 	return true;
 }
 
@@ -267,6 +275,9 @@ bool rpwa::multibinPlots::mergePlotsInto(const multibinPlots& other){
 		}
 	}
 
+	// merge additional fit information
+	_negLogLikeSpectrum->merge(other.negLogLikeSpectrum());
+
 	for(const auto& desc: other._metadata.descriptions)_metadata.descriptions.push_back(desc);
 	for(const auto& label: other._metadata.labels)_metadata.labels.push_back(label);
 
@@ -317,6 +328,13 @@ rpwa::multibinPlots::write(TDirectory* directory) {
 		for (const auto& name_plot : _additionalPlots) {
 			static_cast<componentPlot::baseType*>(name_plot.second)->Write(name_plot.first.c_str());
 		}
+	}
+
+	// write additonal fit information
+	{
+		TDirectory* directoryAddFitInfo = directory->mkdir("additionalFitInformation");
+		directoryAddFitInfo->cd();
+		static_cast<componentPlot::baseType*>(_negLogLikeSpectrum)->Write("negLogLikeSpectrum");
 	}
 
 	// write fit results
@@ -426,8 +444,8 @@ rpwa::multibinPlots::load(TDirectory* directory, const bool onlyBest) {
 			<< directory->GetName() << "'." << std::endl;
 			return false;
 		}
-
 	}
+
 
 	// load fit results
 	{
@@ -455,6 +473,32 @@ rpwa::multibinPlots::load(TDirectory* directory, const bool onlyBest) {
 			}
 		} else {
 			printErr<< "Could not find fitresults tree in multibinplots folder '"
+			<< directory->GetName() << "'." << std::endl;
+			return false;
+		}
+	}
+
+	// load additional fit information
+	{
+		TDirectory* directoryAddFitInfo = dynamic_cast<TDirectory*>(directory->Get("additionalFitInformation"));
+		if (directoryAddFitInfo!= nullptr) {
+			TKey* keyNegLogLike = directoryAddFitInfo->FindKey("negLogLikeSpectrum");
+			if (keyNegLogLike != nullptr){
+				componentPlot::baseType* p = dynamic_cast<componentPlot::baseType*>(keyNegLogLike->ReadObj());
+				if (p != nullptr){
+					_negLogLikeSpectrum = static_cast<componentPlot*>(keyNegLogLike->ReadObj());
+				} else {
+					printErr << "Cannot read neg. log-likelihood plot in multibinplots folder '"
+					<< directory->GetName() << "'." << std::endl;
+					return false;
+				}
+			}else{
+				printWarn << "Cannot find neg. log-likelihood plot in multibinplots folder '"
+					<< directory->GetName() << "'. Try to build from fit results." << std::endl;
+				negLogLikeSpectrum();
+			}
+		} else {
+			printErr<< "Could not find additional fit information folder in multibinplots folder '"
 			<< directory->GetName() << "'." << std::endl;
 			return false;
 		}
@@ -509,6 +553,28 @@ rpwa::multibinPlots::calcIntensityIntegralRegEx(const std::string& waveNamePatte
 	return totIntensity;
 }
 
+componentPlot* rpwa::multibinPlots::negLogLikeSpectrum()
+{
+	if (_negLogLikeSpectrum == nullptr){
+		if (_fitResultsInMassbins.size() > 0) { // we wave loaded fit results
+			componentPlot::plotType* p = nullptr;
+			p = new componentPlot::plotType(_fitResultsInMassbins.size());
+			int i = 0;
+			for (const auto& mass_results : _fitResultsInMassbins) {
+				const fitResult& result = mass_results.second[0];
+				const double negLogLike = result.logLikelihood();
+				const double x = result.multibinCenter().at("mass");
+				p->SetPoint(i, x, negLogLike);
+				i++;
+			}
+			_negLogLikeSpectrum = static_cast<componentPlot*>(new componentPlot::baseType("negLogLikeSpectrum", "-log(likelihood)"));
+			_negLogLikeSpectrum->addForComponent(plotComponents::massIndependent, label(), p);
+		} else {
+			printErr<< "Can not generate likelihood stack because fit results are not stored!" << std::endl;
+		}
+	}
+	return _negLogLikeSpectrum;
+}
 
 componentPlot*
 rpwa::multibinPlots::_intensitySpectrum(const std::string& waveNamePattern) {
