@@ -495,7 +495,7 @@ rpwa::multibinPlots::load(TDirectory* directory, const bool onlyBest) {
 			}else{
 				printWarn << "Cannot find neg. log-likelihood plot in multibinplots folder '"
 					<< directory->GetName() << "'. Try to build from fit results." << std::endl;
-				negLogLikeSpectrum();
+				if(negLogLikeSpectrum() == nullptr) return false;
 			}
 		} else {
 			printErr<< "Could not find additional fit information folder in multibinplots folder '"
@@ -773,16 +773,18 @@ rpwa::componentPlot::addForComponent(const int componentType, const std::string&
 void
 rpwa::componentPlot::merge(const componentPlot* other){
 	TList* otherGraphs = other->GetListOfGraphs();
-	for( int i = 0; i < otherGraphs->GetEntries(); ++i){
-		plotType* g = dynamic_cast<plotType*>(otherGraphs->At(i));
-		if (g == nullptr){
-			printErr << "Cannot merge componentPlots" << std::endl;
-			throw std::invalid_argument("Cannot merge componentPlots");
+	if (otherGraphs != nullptr){ // if the other componentPlot has graphs
+		for( int i = 0; i < otherGraphs->GetEntries(); ++i){
+			plotType* g = dynamic_cast<plotType*>(otherGraphs->At(i));
+			if (g == nullptr){
+				printErr << "Cannot merge componentPlots" << std::endl;
+				throw std::invalid_argument("Cannot merge componentPlots");
+			}
+			plotType* gNew = dynamic_cast<plotType*>(g->Clone());
+			gNew->SetName(g->GetName());
+			gNew->SetTitle(g->GetTitle());
+			Add(gNew);
 		}
-		plotType* gNew = dynamic_cast<plotType*>(g->Clone());
-		gNew->SetName(g->GetName());
-		gNew->SetTitle(g->GetTitle());
-		Add(gNew);
 	}
 }
 
