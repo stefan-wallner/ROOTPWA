@@ -537,8 +537,8 @@ rpwa::multibinPlots::calcIntensityIntegralRegEx(const std::string& waveNamePatte
 					}
 				}
 			} else {
-				printErr<< "Can not calculate total intensity for wave '" << waveNamePattern
-				<< "'. Cannot find plot in multiplots!" << std::endl;
+				printDebug << "Can not calculate total intensity for wave '" << waveNamePattern
+				<< "'. Cannot find plot in multiplots of first solution!" << std::endl;
 			}
 		} else {
 			printErr<< "Can not calculate total intensity for wave '" << waveNamePattern
