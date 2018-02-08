@@ -35,6 +35,7 @@ void rpwa::py::exportGeneratorManager() {
 			, (bp::arg("readBeamfileSequentially")=true)
 		)
 		.def("randomizeBeamfileStartingPosition", &rpwa::generatorManager::randomizeBeamfileStartingPosition)
+		.def("getBeam", &rpwa::generatorManager::getBeam, bp::return_internal_reference<>())
 		.add_static_property("debugGeneratorManager", &rpwa::generatorManager::debug, &rpwa::generatorManager::setDebug);
 
 }

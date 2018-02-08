@@ -44,6 +44,8 @@ namespace rpwa {
 
 		std::ostream& print(std::ostream& out) const;
 
+		const rpwa::Beam& getBeam() const {return _beam;}
+
 		static bool debug() { return _debug; }
 		static void setDebug(bool debug = true) { _debug = debug; }
 
