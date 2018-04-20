@@ -1,6 +1,5 @@
 import gc
 import hashlib
-import base64
 import os
 import pyRootPwa.core
 import pyRootPwa.utils
@@ -13,7 +12,7 @@ def _buildLabelFromHash(fitResultFilenames, description):
 	for filename in fitResultFilenames:
 		label.update(os.path.realpath(filename))
 		label.update(str(os.path.getmtime(filename)))
-	return base64.urlsafe_b64encode(label.digest())[0:7]
+	return label.hexdigest()[0:7]
 
 
 class plotcollection(object):

@@ -1,5 +1,4 @@
 #include "reportingUtils.hpp"
-#include "hashCalculator.h"
 
 #include <stdexcept>
 #include <algorithm>
