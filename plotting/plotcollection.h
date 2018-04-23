@@ -9,6 +9,7 @@
 #include "TObject.h"
 #include "TGraphErrors.h"
 #include "TMultiGraph.h"
+#include "TH2D.h"
 #include "fitResult.h"
 
 namespace rpwa {
@@ -277,6 +278,9 @@ namespace rpwa {
 		std::map<double, std::vector<fitResult> >& fitResultsInMassbins(){return _fitResultsInMassbins;}
 		const std::map<double, std::vector<fitResult> >& fitResultsInMassbins() const {return _fitResultsInMassbins;}
 
+		std::vector<double> massBinCenters() const;
+		std::vector<boundaryType> massBinBoundaries() const;
+
 		/***
 		 * @return ordered list of wave names
 		 */
@@ -336,6 +340,13 @@ namespace rpwa {
 
 		componentPlot* negLogLikeSpectrum() const {return _negLogLikeSpectrum;}
 		componentPlot* negLogLikeSpectrum();
+		TH2D* negLogLikeDistribution(const int nBinsNegLogLike = 100);
+		/***
+		 * @param massBinCenter mass bin center
+		 * @return List of negative log likelihoods of all fit attempts in the given mass bin
+		 */
+		std::vector<double> negLogLikelihoods(const double massBinCenter) const;
+
 
 
 	private:
@@ -351,7 +362,6 @@ namespace rpwa {
 		std::map< double, std::vector< fitResult > > _fitResultsInMassbins;
 		rpwa::multibinplotsMetadata _metadata;
 		componentPlot* _negLogLikeSpectrum;
-		// TODO: Add Likelihood spread
 
 		/***
 		 * Get intensity spectrum as multigraph.

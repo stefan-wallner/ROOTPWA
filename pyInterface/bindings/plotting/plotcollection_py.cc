@@ -236,6 +236,12 @@ namespace {
 		return false;
 	}
 
+	PyObject*
+	multibinPlots_negLogLikeDistribution(rpwa::multibinPlots& self, int nBinsNegLogLike){
+		TH2D* h = self.negLogLikeDistribution(nBinsNegLogLike);
+		return TPython::ObjectProxy_FromVoidPtr(h, h->ClassName(), false);
+	}
+
 	rpwa::componentPlot* multibinPlots_negLogLikeSpectrum(rpwa::multibinPlots& self){
 		return self.negLogLikeSpectrum();
 	}
@@ -298,6 +304,8 @@ rpwa::py::exportPlotcollection() {
 	        .def("write", &multibinPlots_write)
 	        .def("load", &multibinPlots_load, (bp::args("directory"), bp::args("onlyBest") = false))
 	        .def("fitResultsInMassbins", &multibinPlots_fitResultsInMassbins)
+	        .def("massBinCenters", &rpwa::multibinPlots::massBinCenters)
+	        .def("massBinBoundaries", &rpwa::multibinPlots::massBinBoundaries)
 	        .def("waveNames", &multibinPlots_waveNames)
 	        .def("getAdditionalPlot", &multibinPlots_getAdditionalPlot)
 	        .def("addAdditionalPlot", &multibinPlots_addAdditionalPlot)
@@ -308,6 +316,8 @@ rpwa::py::exportPlotcollection() {
 	        .def("calcIntensityIntegralRegEx", &rpwa::multibinPlots::calcIntensityIntegralRegEx,
 	             (bp::args("waveNamePattern"), bp::args("xmin") = nan(""), bp::args("xmax") = nan("")))
 	        .def("negLogLikeSpectrum", &multibinPlots_negLogLikeSpectrum, bp::return_internal_reference<>())
+	        .def("negLogLikelihoods", &rpwa::multibinPlots::negLogLikelihoods)
+	        .def("negLogLikeDistribution", &multibinPlots_negLogLikeDistribution)
 	        ;
 	bp::def("shiftPhaseSpectrumInRange", &plottingtools_shiftPhaseSpectrumInRange);
 	bp::def("makePhaseContinousWithinRange", &plottingtools_makePhaseContinousWithinRange, (bp::args("plot"), bp::arg("nTrails") = 50));

@@ -552,7 +552,8 @@ rpwa::multibinPlots::calcIntensityIntegralRegEx(const std::string& waveNamePatte
 	return totIntensity;
 }
 
-componentPlot* rpwa::multibinPlots::negLogLikeSpectrum()
+componentPlot*
+rpwa::multibinPlots::negLogLikeSpectrum()
 {
 	if (_negLogLikeSpectrum == nullptr){
 		if (_fitResultsInMassbins.size() > 0) { // we wave loaded fit results
@@ -574,6 +575,51 @@ componentPlot* rpwa::multibinPlots::negLogLikeSpectrum()
 	}
 	return _negLogLikeSpectrum;
 }
+
+
+TH2D*
+rpwa::multibinPlots::negLogLikeDistribution(const int nBinsNegLogLike)
+{
+	TH2D* negLLDistribution = nullptr;
+	if (_fitResultsInMassbins.size() > 0) { // we wave loaded fit results
+		const std::vector<double> binCenters = massBinCenters();
+		// Find range for likelihood
+		double negLLMin = _fitResultsInMassbins[binCenters[0]][0].logLikelihood();
+		double negLLMax = negLLMin;
+		for (const double binCenter : binCenters) {
+			for (const auto& result : _fitResultsInMassbins[binCenter]) {
+				negLLMax = fmax(negLLMax, result.logLikelihood());
+				negLLMin = fmin(negLLMin, result.logLikelihood());
+			}
+		}
+
+		negLLDistribution = new TH2D("NegLLDistribution", "Neg. Log-Likelihood Distribution; mass; neg log-like",
+		                             binCenters.size(), massBinBoundaries()[0].first, (massBinBoundaries().end()-1)->second, nBinsNegLogLike, negLLMin, negLLMax);
+		for (const double binCenter : binCenters) {
+			for (const auto& result : _fitResultsInMassbins[binCenter]) {
+				negLLDistribution->Fill(binCenter, result.logLikelihood());
+			}
+		}
+
+	} else {
+		printErr<< "Can not generate likelihood distribution because fit results are not stored!" << std::endl;
+	}
+	return negLLDistribution;
+}
+
+
+std::vector<double>
+rpwa::multibinPlots::negLogLikelihoods(const double massBinCenter) const {
+	if( _fitResultsInMassbins.find(massBinCenter) == _fitResultsInMassbins.end() ){
+		throw std::out_of_range("Mass bin center not in list of mass bin centers!");
+	}
+	const auto& resultsInMassbin = _fitResultsInMassbins.at(massBinCenter);
+	std::vector<double> out;
+	out.reserve(resultsInMassbin.size());
+	std::for_each(resultsInMassbin.begin(), resultsInMassbin.end(), [&out] (const rpwa::fitResult& r) {out.push_back(r.logLikelihood());});
+	return out;
+}
+
 
 componentPlot*
 rpwa::multibinPlots::_intensitySpectrum(const std::string& waveNamePattern) {
@@ -689,6 +735,25 @@ rpwa::multibinPlots::getAdditionalPlot(const std::string& name) {
 		return it->second;
 	}
 	return nullptr;
+}
+
+
+std::vector<double>
+rpwa::multibinPlots::massBinCenters() const {
+	std::vector<double> out;
+	out.reserve(_fitResultsInMassbins.size());
+	std::for_each(_fitResultsInMassbins.begin(), _fitResultsInMassbins.end(),
+	              [&out] (const std::map<double,std::vector<fitResult>>::const_reference& pair) {out.push_back(pair.first);});
+	return out;
+}
+
+std::vector<rpwa::boundaryType>
+rpwa::multibinPlots::massBinBoundaries() const {
+	std::vector<rpwa::boundaryType> out;
+	out.reserve(_fitResultsInMassbins.size());
+	std::for_each(_fitResultsInMassbins.begin(), _fitResultsInMassbins.end(),
+	              [&out] (const std::map<double,std::vector<fitResult>>::const_reference& pair) {out.push_back(pair.second[0].multibinBoundaries().at("mass"));});
+	return out;
 }
 
 
