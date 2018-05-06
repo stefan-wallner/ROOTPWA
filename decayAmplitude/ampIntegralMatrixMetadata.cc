@@ -95,7 +95,7 @@ Int_t rpwa::ampIntegralMatrixMetadata::Write(const char* name, Int_t option, Int
 }
 
 
-bool rpwa::ampIntegralMatrixMetadata::mergeIntegralMatrix(const ampIntegralMatrixMetadata& second) {
+bool rpwa::ampIntegralMatrixMetadata::mergeIntegralMatrix(const ampIntegralMatrixMetadata& second, const bool fromSameMultibin) {
 	const ampIntegralMatrix* secondMatrix = second.getAmpIntegralMatrix();
 	if (secondMatrix->nmbWaves() != _ampIntegralMatrix->nmbWaves()) {
 		printErr << "mismatch in number of waves (" << secondMatrix->nmbWaves()
@@ -125,16 +125,39 @@ bool rpwa::ampIntegralMatrixMetadata::mergeIntegralMatrix(const ampIntegralMatri
 			}
 		}
 	}
-	if (not mergeMultibinBoundaries(second.multibinBoundaries())) {
-		printErr << "could not merge multibin boundaries." << endl;
-		return false;
+	if (not fromSameMultibin){
+		if (not mergeMultibinBoundaries(second.multibinBoundaries())) {
+			printErr << "could not merge multibin boundaries." << endl;
+			return false;
+		}
+	} else {
+		for(const auto& element: second.multibinBoundaries()){
+			const string binningVariable = element.first;
+			if (_multibinBoundaries.find(binningVariable) == _multibinBoundaries.end()) {
+				printErr << "not from selfe multibin boundaries." << endl;
+				return false;
+			} else {
+				if (_multibinBoundaries[binningVariable].first  != element.second.first or
+				    _multibinBoundaries[binningVariable].second != element.second.second){
+					printErr << "not from selfe multibin boundaries." << endl;
+					return false;
+				}
+			}
+		}
 	}
 	{
 		vector<rpwa::eventMetadata> secondMetas = second.evtMetas();
 		for (size_t meta_i = 0; meta_i < secondMetas.size(); ++meta_i) {
-			if (not addEventMetadata(secondMetas[meta_i])) {
-			        printErr << "could not add event metadata." << endl;
-			        return false;
+			if (not fromSameMultibin){
+				if (not addEventMetadata(secondMetas[meta_i])) {
+						printErr << "could not add event metadata." << endl;
+						return false;
+				}
+			} else {
+				if (std::find(_evtMetas.begin(), _evtMetas.end(), secondMetas[meta_i]) == _evtMetas.end()) {
+						printErr << "could not find event metadata." << endl;
+						return false;
+				}
 			}
 		}
 	}

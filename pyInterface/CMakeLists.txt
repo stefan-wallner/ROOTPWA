@@ -127,6 +127,7 @@ set(RPWA_PYTHON_SCRIPTS_FILES
 	generatePhaseSpace.py
 	genPseudoData.py
 	likelihoodPointCalculator.py
+	mergeIntegrals.py
 	plotAngles.py
 	printMetadata.py
 	pwaFit.py

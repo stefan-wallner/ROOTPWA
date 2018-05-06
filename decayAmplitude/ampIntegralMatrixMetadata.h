@@ -37,7 +37,11 @@ namespace rpwa {
 			}
 			Int_t Write(const char* name = 0, Int_t option = 0, Int_t bufsize = 0) const;
 
-			bool mergeIntegralMatrix(const ampIntegralMatrixMetadata& second);
+			/**
+			 * Merge integral matrices
+			 * @param fromSameMultibin: If true, assumes that the integral matrixes where calculated from the same multibin
+			 */
+			bool mergeIntegralMatrix(const ampIntegralMatrixMetadata& second, const bool fromSameMultibin = false);
 
 			bool setAmpIntegralMatrix(ampIntegralMatrix* matrix);
 			bool setHash();
