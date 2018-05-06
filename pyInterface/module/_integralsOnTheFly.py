@@ -3,23 +3,13 @@ import pyRootPwa.utils
 import pyRootPwa.core
 
 
-def _getAmplitudes(keyFileNameList, prodNames, decayNames, integralMetaData, addKeyfilecontent):
+def _getAmplitudes(waveDescriptions, prodNames, decayNames):
 	amplitudes      = []
 	waveNames       = []
-	for keyFile in keyFileNameList:
-		waveDescription = pyRootPwa.core.waveDescription.parseKeyFile(keyFile[0])[keyFile[1]]
-		if addKeyfilecontent:
-			if not integralMetaData.addKeyFileContent(waveDescription.keyFileContent()):
-				pyRootPwa.utils.printWarn("could not add keyfile content. Aborting...")
-				return False, False
-		else:
-			if not integralMetaData.hasKeyFileContent(waveDescription.keyFileContent()):
-				pyRootPwa.utils.printErr("keyfile content of additional eventFiledID missing in first eventFieldID.")
-				return False, False
-
+	for waveDescription in waveDescriptions:
 		(result, amplitude) = waveDescription.constructAmplitude()
 		if not result:
-			pyRootPwa.utils.printErr('could not construct amplitude for keyfile "' + keyFile[0] + '" (ID '+str(keyFile[1])+'). Aborting...')
+			pyRootPwa.utils.printErr('could not construct amplitude. Aborting...')
 			return False, False
 		amplitude.init()
 		topo = amplitude.decayTopology()
@@ -99,6 +89,7 @@ def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, mul
 		splitEventsInBunchesN = int(splitEventsInBunchesN)
 		splitEventsInBunchesBunch = int(splitEventsInBunchesBunch)
 
+
 	if not isinstance(eventFileNames, list):
 		eventFileNames = [eventFileNames]
 
@@ -113,8 +104,17 @@ def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, mul
 		if multibinBoundaries["mass"][0] > 200.:
 			multibinBoundaries["mass"] = (multibinBoundaries["mass"][0]/1000.,multibinBoundaries["mass"][1]/1000.)
 	metadataObject.setMultibinBoundaries(multibinBoundaries)
+
+	waveDescriptions = []
+	for keyFile in keyFileNameList:
+		waveDescriptions.append( pyRootPwa.core.waveDescription.parseKeyFile(keyFile[0])[keyFile[1]])
+	for waveDescription in waveDescriptions:
+		if not metadataObject.addKeyFileContent(waveDescription.keyFileContent()):
+			pyRootPwa.utils.printWarn("could not add keyfile content. Aborting...")
+			return False
+
 	integrals = []
-	for iEventFileName, eventFileName in enumerate(eventFileNames):
+	for  eventFileName in eventFileNames:
 		eventFile = pyRootPwa.ROOT.TFile.Open(eventFileName, "READ")
 		if not eventFile:
 			pyRootPwa.utils.printErr("could not open event file. Aborting...")
@@ -122,7 +122,7 @@ def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, mul
 		eventMeta  = pyRootPwa.core.eventMetadata.readEventFile(eventFile)
 		prodNames  = eventMeta.productionKinematicsParticleNames()
 		decayNames = eventMeta.decayKinematicsParticleNames()
-		amplitudes, waveNames = _getAmplitudes(keyFileNameList, prodNames, decayNames, metadataObject, addKeyfilecontent=iEventFileName==0)
+		amplitudes, waveNames = _getAmplitudes(waveDescriptions, prodNames, decayNames)
 		if not amplitudes or not waveNames:
 			pyRootPwa.utils.printErr("could initialize amplitudes. Aborting...")
 			return False
