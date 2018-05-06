@@ -76,7 +76,29 @@ def _integrate(amplitudes, eventTree, waveNames, minEvent, maxEvent, multibinBou
 	return integralMatrix, hashers
 
 
-def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, multibinBoundaries = None, maxNmbEvents = -1, startEvent = 0):
+def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, multibinBoundaries = None,
+	                      maxNmbEvents = -1, startEvent = 0, splitEventsInBunchesN = None, splitEventsInBunchesBunch = None):
+	"""
+	Calculate the integral matrix of the given multibin by calculating the amplitudes on the fly.
+
+	The integral can be calculated from the whole input file or from a subsample of events in the input file
+	by the following two combinations of two arguments.
+	@param maxNmbEvents: Maximal number of events per input file
+	@param startEvent: Index of first event processed per input file
+	@param splitEventsInBunchesN: Number of bunches, into which each input file will be splitted
+	@param splitEventsInBunchesBunch: Current bunch to include in the input file
+	"""
+
+	if splitEventsInBunchesN is not None or splitEventsInBunchesBunch is not None:
+		if splitEventsInBunchesN is None or splitEventsInBunchesBunch is None:
+			pyRootPwa.core.printErr("Both, 'splitEventsInBunchesN' and 'splitEventsInBunchesBunch', need to be defined!")
+			return False
+		if maxNmbEvents != -1 or startEvent != 0:
+			pyRootPwa.core.printErr("'splitEventsInBunchesN' and 'splitEventsInBunchesBunch', cannot be defined together with 'maxNmbEvents', 'startEvent'!")
+			return False
+		splitEventsInBunchesN = int(splitEventsInBunchesN)
+		splitEventsInBunchesBunch = int(splitEventsInBunchesBunch)
+
 	if not isinstance(eventFileNames, list):
 		eventFileNames = [eventFileNames]
 
@@ -108,6 +130,11 @@ def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, mul
 		nEvents   = eventTree.GetEntries()
 		minEvent = startEvent
 		maxEvent = nEvents
+		if splitEventsInBunchesN is not None:
+			quotient = nEvents / splitEventsInBunchesN
+			modulus  = nEvents % splitEventsInBunchesN
+			minEvent = quotient*splitEventsInBunchesBunch     + min(splitEventsInBunchesBunch, modulus)   # inclusive
+			maxEvent = quotient*(splitEventsInBunchesBunch+1) + min(splitEventsInBunchesBunch+1, modulus) # exclusive
 		if maxNmbEvents	> -1:
 			maxEvent = min(maxEvent, startEvent + maxNmbEvents)
 		if not metadataObject.addEventMetadata(eventMeta):
