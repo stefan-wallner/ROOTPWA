@@ -150,6 +150,9 @@ testStep "calculation of amplitudes for phase-space data" "${ROOTPWA}/build/bin/
 # calculate integrals for generated phase-space data
 testStep "calculation of integrals for phase-space data" "${ROOTPWA}/build/bin/calcIntegrals -e generated"
 
+# test amplitude calculation on the fly
+testStep "calculation of integrals for phase-space data on the fly" "${ROOTPWA}/test/testIntegrals.py"
+
 # generate weighted MC pseudo data
 testStep "generation of MC data with weights" \
 "${ROOTPWA}/build/bin/genPseudoData \
