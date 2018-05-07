@@ -66,15 +66,25 @@ namespace rpwa {
 	{
 		if (debug)
 			printDebug << "parsing libConfig file '" << libConfigFileName << "'" << std::endl;
+		FILE* fin = fopen(libConfigFileName.c_str(), "r");
+		if (fin == nullptr){
+			printWarn << "I/O error while opening libConfig file "
+			          << "'" << libConfigFileName << "'" << std::endl;
+			return false;
+		}
+
 		try {
-			config.readFile(libConfigFileName.c_str());
+			config.read(fin);
+			fclose(fin);
 		} catch (const libconfig::FileIOException& ioEx) {
 			printWarn << "I/O error while reading libConfig file "
 			          << "'" << libConfigFileName << "'" << std::endl;
+			fclose(fin);
 			return false;
 		} catch (const libconfig::ParseException&  parseEx) {
 			printWarn << "parse error in '" << parseEx.getFile() << "' line " << parseEx.getLine()
 			          << ": " << parseEx.getError() << std::endl;
+			fclose(fin);
 			return false;
 		}
 		return true;
