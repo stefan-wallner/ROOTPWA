@@ -36,6 +36,8 @@
 
 
 #include<map>
+#include<chrono>
+#include<thread>
 
 #include "libconfig.h++"
 
@@ -67,6 +69,10 @@ namespace rpwa {
 		if (debug)
 			printDebug << "parsing libConfig file '" << libConfigFileName << "'" << std::endl;
 		FILE* fin = fopen(libConfigFileName.c_str(), "r");
+		for(int i=0; i<3 && fin==nullptr; ++i){ // try 4x to open the file
+			std::this_thread::sleep_for(std::chrono::milliseconds(300));
+			fin = fopen(libConfigFileName.c_str(), "r");
+		}
 		if (fin == nullptr){
 			printWarn << "I/O error while opening libConfig file "
 			          << "'" << libConfigFileName << "'" << std::endl;
