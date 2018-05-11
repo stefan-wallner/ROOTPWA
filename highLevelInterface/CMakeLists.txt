@@ -60,6 +60,7 @@ endif()
 # source files that are compiled into library
 set(SOURCES
 	calcAmplitude.cc
+	calcIntegral.cc
 	pwaFit.cc
 	getMassShapes.cc
 	)

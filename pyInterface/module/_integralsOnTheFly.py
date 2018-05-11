@@ -1,69 +1,16 @@
-import numpy
 import pyRootPwa.utils
 import pyRootPwa.core
 
 
-def _getAmplitudes(waveDescriptions, prodNames, decayNames):
+def _getAmplitudes(waveDescriptions):
 	amplitudes      = []
-	waveNames       = []
 	for waveDescription in waveDescriptions:
 		(result, amplitude) = waveDescription.constructAmplitude()
 		if not result:
 			pyRootPwa.utils.printErr('could not construct amplitude. Aborting...')
 			return False, False
-		amplitude.init()
-		topo = amplitude.decayTopology()
-		if not topo.initKinematicsData(prodNames, decayNames):
-			pyRootPwa.utils.printErr("could not initialize the decay topology with the kinematics data. Aborting...")
-			return False, False
 		amplitudes.append(amplitude)
-		waveNames.append(pyRootPwa.core.waveDescription.waveNameFromTopology(amplitude.decayTopology()))
-	return amplitudes, waveNames
-
-
-def _integrate(amplitudes, eventTree, waveNames, minEvent, maxEvent, multibinBoundaries):
-	prodKinMomenta  = pyRootPwa.ROOT.TClonesArray("TVector3")
-	decayKinMomenta = pyRootPwa.ROOT.TClonesArray("TVector3")
-	eventTree.SetBranchAddress(pyRootPwa.core.eventMetadata.productionKinematicsMomentaBranchName, prodKinMomenta)
-	eventTree.SetBranchAddress(pyRootPwa.core.eventMetadata.decayKinematicsMomentaBranchName, decayKinMomenta)
-	integralMatrix = pyRootPwa.core.ampIntegralMatrix()
-	hashers = [pyRootPwa.core.hashCalculator() for _ in range(len(amplitudes))]
-	integralMatrix.setWaveNames(waveNames)
-	ampWaveNameMap   = {}
-	binningVariables = {}
-	for key in multibinBoundaries:
-		binningVariables[key] = numpy.array(1, dtype = float)
-		eventTree.SetBranchAddress(key, binningVariables[key])
-	for waveName in waveNames:
-		ampWaveNameMap[waveName] = 0.+0.j
-	pyRootPwa.utils.printInfo("starting event loop.")
-	skippedEvents = 0
-	progressBar = pyRootPwa.utils.progressBar(minEvent, maxEvent)
-	progressBar.start()
-	for evt_i in range(minEvent, maxEvent):
-		progressBar.update(evt_i)
-		eventTree.GetEvent(evt_i)
-		skipEvent = False
-		for key in multibinBoundaries:
-			if binningVariables[key] < multibinBoundaries[key][0] or  binningVariables[key] >= multibinBoundaries[key][1]:
-				skippedEvents += 1
-				skipEvent = True
-				break
-		if skipEvent:
-			continue
-		for amp_i, amplitude in enumerate(amplitudes):
-			topo = amplitude.decayTopology()
-			if not topo.readKinematicsData(prodKinMomenta, decayKinMomenta):
-				pyRootPwa.utils.printErr("could not load kinematics data. Aborting...")
-				return None, None
-			ampl = amplitude()
-			hashers[amp_i].Update(ampl)
-			ampWaveNameMap[waveNames[amp_i]] = ampl
-		if not integralMatrix.addEvent(ampWaveNameMap):
-			pyRootPwa.utils.printErr("could not add event to integral matrix. Aborting...")
-			return None, None
-	pyRootPwa.utils.printInfo(str(skippedEvents) + " events rejected because they are outside the binning.")
-	return integralMatrix, hashers
+	return amplitudes
 
 
 def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, multibinBoundaries = None,
@@ -120,10 +67,8 @@ def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, mul
 			pyRootPwa.utils.printErr("could not open event file. Aborting...")
 			return False
 		eventMeta  = pyRootPwa.core.eventMetadata.readEventFile(eventFile)
-		prodNames  = eventMeta.productionKinematicsParticleNames()
-		decayNames = eventMeta.decayKinematicsParticleNames()
-		amplitudes, waveNames = _getAmplitudes(waveDescriptions, prodNames, decayNames)
-		if not amplitudes or not waveNames:
+		amplitudes = _getAmplitudes(waveDescriptions)
+		if not amplitudes:
 			pyRootPwa.utils.printErr("could initialize amplitudes. Aborting...")
 			return False
 		eventTree = eventMeta.eventTree()
@@ -144,7 +89,7 @@ def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, mul
 			multibinBoundaries = eventMeta.multibinBoundaries()
 			if not multibinBoundaries:
 				pyRootPwa.utils.printWarn("no binning map found.")
-		integralMatrix, hashers = _integrate(amplitudes, eventTree, waveNames, minEvent, maxEvent, multibinBoundaries)
+		integralMatrix, hashers = pyRootPwa.core.calcIntegralOnTheFly(eventMeta, amplitudes, multibinBoundaries, minEvent, maxEvent)
 		if integralMatrix.nmbEvents() == 0:
 			continue # no events from the multibin found in this event file -> skipping it
 		if not integralMatrix or not hashers:
