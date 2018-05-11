@@ -287,9 +287,23 @@ ampIntegralMatrix::addEvent(map<string, complex<double> > &amplitudes)
 		}
 	}
 	for (size_t iWave = 0; iWave < _nmbWaves; ++iWave) {
-		complex<double> iAmp = amplitudes[_waveNames[iWave]];
+		const complex<double> iAmp = amplitudes[_waveNames[iWave]];
 		for (size_t jWave = 0; jWave < _nmbWaves; ++jWave) {
-			complex<double> jAmp = amplitudes[_waveNames[jWave]];
+			const complex<double> jAmp = amplitudes[_waveNames[jWave]];
+			_integrals[iWave][jWave] += iAmp * conj(jAmp);
+		}
+	}
+	++_nmbEvents;
+	return true;
+}
+
+bool
+ampIntegralMatrix::addEvent(const vector< complex<double> > &amplitudes)
+{
+	for (size_t iWave = 0; iWave < _nmbWaves; ++iWave) {
+		const complex<double> iAmp = amplitudes[iWave];
+		for (size_t jWave = 0; jWave < _nmbWaves; ++jWave) {
+			const complex<double> jAmp = amplitudes[jWave];
 			_integrals[iWave][jWave] += iAmp * conj(jAmp);
 		}
 	}

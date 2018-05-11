@@ -62,9 +62,7 @@ rpwa::hli::calcIntegralOnTheFly(const rpwa::eventMetadata& eventMeta,
 	vector<hashCalculator> hashers(amplitudes.size());
 	integralMatrix.setWaveNames(waveNames);
 
-	map<string, complex<double>> ampWaveNameMap;
-	for (const auto& waveName : waveNames)
-		ampWaveNameMap[waveName] = 0.0;
+	vector<complex<double>> ampWaveList(amplitudes.size());
 
 	printInfo<< "starting event loop." << endl;
 	long int nmbEvents = eventTree->GetEntries();
@@ -88,12 +86,12 @@ rpwa::hli::calcIntegralOnTheFly(const rpwa::eventMetadata& eventMeta,
 				printErr<< "could not load kinematics data. Aborting..." << endl;
 				throw;
 			}
-			complex<double> ampValue = amp->amplitude();
+			const complex<double> ampValue = amp->amplitude();
 			hashers[amp_i].Update(ampValue);
-			ampWaveNameMap[waveNames[amp_i]] = ampValue;
+			ampWaveList[amp_i] = ampValue;
 		}
 
-		if (not integralMatrix.addEvent(ampWaveNameMap)) {
+		if (not integralMatrix.addEvent(ampWaveList)) {
 			printErr<< "could not add event to integral matrix. Aborting..." << endl;
 			throw;
 		}
