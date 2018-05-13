@@ -2,7 +2,6 @@
 stages:
   - build
   - test
-  - testMC
 
 build:
   stage: build
@@ -17,7 +16,7 @@ cache:
   paths:
     - "build"
 
-test:
+test-code:
   stage: test
   script: 
     - export ROOTPWA="$(realpath .)"
@@ -27,8 +26,8 @@ test:
     - make test
     - cd ..
 
-testMC:
-  stage: testMC
+test-mc:
+  stage: test
   script: 
     - export ROOTPWA="$(realpath .)"
     - export PYTHONPATH="${ROOTPWA}/build/pyLib:${PYTHONPATH}"
