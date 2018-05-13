@@ -1,0 +1,41 @@
+
+stages:
+  - build
+  - test
+  - testMC
+
+build:
+  stage: build
+  script: 
+    - cd build
+    - cmake3 ..
+    - make -j 2
+    - cd ..
+
+
+cache:
+  paths:
+    - "build"
+
+test:
+  stage: test
+  script: 
+    - export ROOTPWA="$(realpath .)"
+    - export PYTHONPATH="${ROOTPWA}/build/pyLib:${PYTHONPATH}"
+    - export PATH="${ROOTPWA}/build/bin:${PATH}" 
+    - cd build
+    - make test
+    - cd ..
+
+testMC:
+  stage: testMC
+  script: 
+    - export ROOTPWA="$(realpath .)"
+    - export PYTHONPATH="${ROOTPWA}/build/pyLib:${PYTHONPATH}"
+    - export PATH="${ROOTPWA}/build/bin:${PATH}" 
+    - cd test
+    - rm -rf ROOTPWA_MC_TEST
+    - ./testMC.sh
+    - rm -rf ROOTPWA_MC_TEST
+    - cd ..
+  
