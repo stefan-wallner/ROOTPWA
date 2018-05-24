@@ -120,8 +120,9 @@ bool rpwa::ampIntegralMatrixMetadata::mergeIntegralMatrix(const ampIntegralMatri
 		const vector<string> secondAmplitudeHashes = second.getAmplitudeHashes();
 		for (size_t hash_i = 0; hash_i < secondAmplitudeHashes.size(); ++hash_i) {
 			if (not addAmplitudeHash(secondAmplitudeHashes[hash_i])) {
-				printErr << "could not add amplitude hash." << endl;
-				return false;
+				printWarn << "could not add amplitude hash when mering matrices." << endl;
+				// This problem is not fatal as in special cases (freed-isobar analysis) the same 
+				// amlitude hash can appear.
 			}
 		}
 	}
