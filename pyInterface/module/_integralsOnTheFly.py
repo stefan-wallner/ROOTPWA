@@ -53,8 +53,8 @@ def calcIntegralsOnTheFly(integralFileName, eventFileNames, keyFileNameList, mul
 	metadataObject.setMultibinBoundaries(multibinBoundaries)
 
 	waveDescriptions = []
-	for keyFile in keyFileNameList:
-		waveDescriptions.append( pyRootPwa.core.waveDescription.parseKeyFile(keyFile[0])[keyFile[1]])
+	for keyFileName in keyFileNameList:
+		waveDescriptions += pyRootPwa.core.waveDescription.parseKeyFile(keyFileName)
 	for waveDescription in waveDescriptions:
 		if not metadataObject.addKeyFileContent(waveDescription.keyFileContent()):
 			pyRootPwa.utils.printWarn("could not add keyfile content. Aborting...")

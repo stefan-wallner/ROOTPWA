@@ -68,18 +68,22 @@ if __name__ == "__main__":
 	else:
 		datasets = [args.dataset]
 
-	waveList = fileManager.getWaveNameList()
-	keyFileNames = [(fileManager.getKeyFile(waveName),0) for waveName in waveList]
+	keyFileNames = []
+	for waveName in fileManager.getWaveNameList():
+		keyFileName = fileManager.getKeyFile(waveName)
+		if keyFileName not in keyFileNames:
+			keyFileNames.append(keyFileName)
+
 	for multiBin in binList:
 		for eventsType in eventsTypes:
 			for dataset in datasets:
 				outputFileName = fileManager.getIntegralFilePath(multiBin, eventsType, dataset)
-				if args.splitEventsBunch is not None:
-					outputFileName += ".{0:03d}".format(int(args.splitEventsBunch))
 				eventAndAmpFileDict = fileManager.getEventAndAmplitudeFilePathsInBin(multiBin, eventsType, dataset)
 				if not eventAndAmpFileDict:
 					printErr("could not retrieve valid amplitude file list. Aborting...")
 					sys.exit(1)
+				if args.splitEventsBunch is not None:
+					outputFileName += ".{0:03d}".format(int(args.splitEventsBunch))
 				if args.onTheFly:
 					eventFileNames = [ e for e,_ in eventAndAmpFileDict.iteritems()]
 					if not pyRootPwa.calcIntegralsOnTheFly(outputFileName, eventFileNames, keyFileNames, multiBin.boundaries,
