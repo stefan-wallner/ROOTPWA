@@ -1,6 +1,7 @@
 #include "ampIntegralMatrix_py.h"
 
 #include <boost/python.hpp>
+#include <boost/python/stl_iterator.hpp>
 
 #include <TDirectory.h>
 
@@ -42,6 +43,18 @@ namespace {
 	                                                const std::string& waveNameJ)
 	{
 		return self.element(waveNameI, waveNameJ);
+	}
+
+	rpwa::ampIntegralMatrix ampIntegralMatrix_subMatrix(const rpwa::ampIntegralMatrix& self, const bp::list& waves){
+		if (bp::len(waves) == 0){
+			throw;
+		}
+		bp::extract<std::string> firstWavename(waves[0]);
+		if (firstWavename.check()){ // its a list of strings
+			return self.subMatrix(std::vector<std::string>(bp::stl_input_iterator<std::string>(waves), bp::stl_input_iterator<std::string>()));
+		} else { // its a list of ints
+			return self.subMatrix(std::vector<unsigned int>(bp::stl_input_iterator<unsigned int>(waves), bp::stl_input_iterator<unsigned int>()));
+		}
 	}
 
 	bool ampIntegralMatrix_integrate(rpwa::ampIntegralMatrix& self,
@@ -141,6 +154,7 @@ void rpwa::py::exportAmpIntegralMatrix() {
 			, bp::return_value_policy<bp::copy_const_reference>()
 		)
 		.def("allWavesHaveDesc", &rpwa::ampIntegralMatrix::allWavesHaveDesc)
+		.def("subMatrix", &ampIntegralMatrix_subMatrix)
 
 //		Commenting this until it is decided how the boost::multi_array should be handled in python
 //		.def("matrix", &rpwa::ampIntegralMatrix::matrix)
