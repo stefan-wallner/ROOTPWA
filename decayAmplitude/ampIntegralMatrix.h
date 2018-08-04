@@ -135,6 +135,22 @@ namespace rpwa {
 
 		void renormalize(const unsigned long nmbEventsRenorm);
 
+		/**
+		 * Normalize the matrix using the given normalization vector
+		 * @param normVector: Real values of diagonal elements of normalization integral matrix
+		*/
+		void normalizeDecayAmplitudes(const std::vector<double>& normVector);
+
+		/**
+		 * Normalize the matrix using the given normalization matrix
+		*/
+		void normalizeDecayAmplitudes(const ampIntegralMatrix& normMatrix);
+
+		/**
+		 * Normalize the matrix by itself, such that the diagonal elements are one
+		*/
+		void normalizeDecayAmplitudes() {normalizeDecayAmplitudes(*this);}
+
 		bool writeAscii(std::ostream&      out = std::cout) const;
 		bool readAscii (std::istream&      in  = std::cin );
 		bool writeAscii(const std::string& outFileName) const;

@@ -102,6 +102,23 @@ namespace {
 		return self.addEvent(amplitudes);
 	}
 
+	void ampIntegralMatrix_normalizeDecayAmplitudes1(rpwa::ampIntegralMatrix& self,
+	                                                 const std::vector<double>& normVector)
+	{
+		self.normalizeDecayAmplitudes(normVector);
+	}
+
+	void ampIntegralMatrix_normalizeDecayAmplitudes2(rpwa::ampIntegralMatrix& self,
+	                                                 const rpwa::ampIntegralMatrix& normMatrix)
+	{
+		self.normalizeDecayAmplitudes(normMatrix);
+	}
+
+	void ampIntegralMatrix_normalizeDecayAmplitudes3(rpwa::ampIntegralMatrix& self)
+	{
+		self.normalizeDecayAmplitudes();
+	}
+
 	bool ampIntegralMatrix_writeAscii(const rpwa::ampIntegralMatrix& self, const std::string& outFileName) {
 		return self.writeAscii(outFileName);
 	}
@@ -200,6 +217,9 @@ void rpwa::py::exportAmpIntegralMatrix() {
 		     , bp::arg("waveNameAmplitudeMap"))
 
 		.def("renormalize", &rpwa::ampIntegralMatrix::renormalize)
+		.def("normalizeDecayAmplitudes", &ampIntegralMatrix_normalizeDecayAmplitudes1)
+		.def("normalizeDecayAmplitudes", &ampIntegralMatrix_normalizeDecayAmplitudes2)
+		.def("normalizeDecayAmplitudes", &ampIntegralMatrix_normalizeDecayAmplitudes3)
 		.def("writeAscii", &ampIntegralMatrix_writeAscii)
 		.def("readAscii", &ampIntegralMatrix_readAscii)
 

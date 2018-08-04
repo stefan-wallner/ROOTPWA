@@ -545,6 +545,34 @@ ampIntegralMatrix::integrate(const vector<const amplitudeMetadata*>& ampMetadata
 
 
 void
+ampIntegralMatrix::normalizeDecayAmplitudes( const vector<double>& normVector ){
+	if (normVector.size() != _nmbWaves){
+		printErr << "Normalization vector has wrong size ( " << normVector.size() << " )!" << endl;
+		throw;
+	}
+
+	vector<double> normValues(_nmbWaves);
+	for (unsigned int i=0; i < _nmbWaves; ++i)
+		normValues[i] = sqrt(normVector[i]);
+
+	for (unsigned int i=0; i < _nmbWaves; ++i){
+		for (unsigned int j=0; j < _nmbWaves; ++j){
+			_integrals[i][j] /= normValues[i]*normValues[j];
+		}
+	}
+}
+
+
+void
+ampIntegralMatrix::normalizeDecayAmplitudes( const ampIntegralMatrix& normMatrix){
+	vector<double> normVector(nmbWaves());
+	for(unsigned int i=0; i < nmbWaves(); ++i)
+		normVector[i] = normMatrix.element(waveName(i),waveName(i)).real();
+	normalizeDecayAmplitudes(normVector);
+}
+
+
+void
 ampIntegralMatrix::renormalize(const unsigned long nmbEventsRenorm)
 {
 	if (_debug)
