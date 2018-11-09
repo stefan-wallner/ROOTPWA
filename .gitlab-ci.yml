@@ -8,6 +8,7 @@ before_script:
   - python --version
   - gcc --version
   - source /usr/local/root/bin/thisroot.sh 
+  - export OMP_NUM_THREADS=6
 
 
 build:
