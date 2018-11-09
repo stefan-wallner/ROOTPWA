@@ -140,7 +140,8 @@ rpwa::createMassDependence(const std::string& massDepType, const libconfig::Sett
 	                              rpwa::piPiSWaveAuMorganPenningtonKachaev,
 	                              rpwa::rhoPrimeMassDep,
 	                              rpwa::KPiSGLASS,
-	                              rpwa::KPiSPalanoPennington>(massDepType, settings);
+	                              rpwa::KPiSPalanoPennington,
+	                              rpwa::KPiSMagalhaesElastic>(massDepType, settings);
 }
 
 
@@ -824,6 +825,131 @@ KPiSPalanoPennington::amp(const isobarDecayVertex& v)
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+KPiSMagalhaesElastic::KPiSMagalhaesElastic(const double MMax)
+:
+		massDependenceImpl<KPiSMagalhaesElastic>(),
+		_MMax(MMax)
+{
+}
+
+boost::shared_ptr<KPiSMagalhaesElastic>
+KPiSMagalhaesElastic::Create(const libconfig::Setting* massDepKey)
+                             {
+
+	// if not given, take up to 5 GeV
+	double MMax = 5.0;
+	if (massDepKey != nullptr) {
+		massDepKey->lookupValue("MMax", MMax);
+	}
+
+	return KPiSMagalhaesElastic::Create(MMax);
+}
+
+std::string
+KPiSMagalhaesElastic::parentLabelForWaveName(const isobarDecayVertex& v) const
+                                             {
+	std::ostringstream label;
+	label << name() << "<MMax_" << _MMax << "GeV>[" << v.parent()->name() << "]";
+	return label.str();
+}
+
+double
+KPiSMagalhaesElastic::lambda(const double x, const double y, const double z) const {
+	return pow((y + z - x), 2) - 4 * z * y;
+}
+
+double
+KPiSMagalhaesElastic::rhoKpi(const double s) const {
+	return sqrt(
+	        (1 - (_piChargedMass + _kaonChargedMass) * (_piChargedMass + _kaonChargedMass) / s)
+	                * (1 - (_piChargedMass - _kaonChargedMass) * (_piChargedMass - _kaonChargedMass) / s));
+}
+
+double
+KPiSMagalhaesElastic::gamma2(const double s) const { // Kernel
+	const double contact = (_mKappa * _mKappa - s) * (1.0 / (_fKpi * _fKpi))
+	        * (s - s * (3.0 / 8.0) * pow(rhoKpi(s), 2.0) - (_piChargedMass * _piChargedMass + _kaonChargedMass * _kaonChargedMass));
+	const double resonance = (3.0 / (2.0 * pow(_fKpi, 2)))
+	        * pow((_ed * s - (_ed - _em) * (_piChargedMass * _piChargedMass + _kaonChargedMass * _kaonChargedMass)), 2);
+	return resonance + contact;
+}
+
+double
+KPiSMagalhaesElastic::reL(const double s) const { // real part of the loop
+	const double threshold = pow((_kaonChargedMass + _piChargedMass), 2);
+	const double prelimiar = pow((_kaonChargedMass - _piChargedMass), 2);
+	const double _kaonChargedMass2 = _kaonChargedMass * _kaonChargedMass;
+	const double _piChargedMass2 = _piChargedMass * _piChargedMass;
+	const double Sigma = _kaonChargedMass2 + _piChargedMass2;
+	const double L0 = 1.0 + ((_kaonChargedMass2 + _piChargedMass2) / (_piChargedMass2 - _kaonChargedMass2)) * log(_piChargedMass / _kaonChargedMass)
+	        - ((_piChargedMass2 - _kaonChargedMass2) / s) * log(_piChargedMass / _kaonChargedMass); // NOvo Valor subtraido em L(0).
+
+	if (s < prelimiar)
+		return L0
+		        + (sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2)) / (2.0 * s))
+		                * log(
+		                        (_kaonChargedMass2 + _piChargedMass2 - s + sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2)))
+		                                / (_kaonChargedMass2 + _piChargedMass2 - s - sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2))));
+	if (s >= prelimiar && s < Sigma)
+		return L0
+		        - (sqrt(-lambda(s, _kaonChargedMass2, _piChargedMass2)) / s)
+		                * atan(sqrt(-lambda(s, _kaonChargedMass2, _piChargedMass2)) / (_kaonChargedMass2 + _piChargedMass2 - s));
+	if (s >= Sigma && s < threshold)
+		return L0
+		        - (sqrt(-lambda(s, _kaonChargedMass2, _piChargedMass2)) / s)
+		                * (atan(sqrt(-lambda(s, _kaonChargedMass2, _piChargedMass2)) / (_kaonChargedMass2 + _piChargedMass2 - s))
+		                        + M_PI);
+	if (s >= threshold)
+		return L0
+		        - (sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2)) / (2.0 * s))
+		                * log(
+		                        (s - _kaonChargedMass2 - _piChargedMass2 + sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2)))
+		                                / (s - _kaonChargedMass2 - _piChargedMass2 - sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2))));
+	return 0.0;
+}
+
+double
+KPiSMagalhaesElastic::imL(const double s) const { // imaginary part of the loop
+	const double threshold = (_kaonChargedMass + _piChargedMass) * (_kaonChargedMass + _piChargedMass);
+	if (s > threshold)
+		return M_PI * rhoKpi(s);
+	else
+		return 0;
+}
+
+complex<double>
+KPiSMagalhaesElastic::amp(const isobarDecayVertex& v)
+                          {
+
+	// get mass
+	const double M = v.parent()->lzVec().M();                 // parent mass
+
+	complex<double> amp = 0.0;
+
+	if (M > _kaonChargedMass + _piChargedMass and M < _MMax) {
+		const double s = M * M;
+
+		const double Rbarra = -1.0 / (16.0 * M_PI * M_PI) * reL(s);
+		const double I = (-1.0 / (16.0 * M_PI * M_PI)) * imL(s);
+
+		const double M2 = _mKappa * _mKappa + gamma2(s) * (Rbarra + _C);
+		const double Gamma = gamma2(s) * I;
+
+		const double ReAmp = -gamma2(s) * (s - M2) / (pow(s - M2, 2) + Gamma * Gamma);
+		const double ImAmp = -gamma2(s) * Gamma / (pow(s - M2, 2) + Gamma * Gamma);
+
+		amp = complex<double>(ReAmp, ImAmp)/16.0/M_PI;
+
+	}
+
+	if (_debug)
+		printDebug<< name() << "(m = " << maxPrecision(M) << " GeV/c^2, "
+		<< "GeV/c) = " << maxPrecisionDouble(amp) << endl;
+
+	return amp;
+
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 complex<double>

@@ -481,6 +481,42 @@ namespace {
 		}
 
 	};
+
+	struct KPiSMagalhaesElasticWrapper : public rpwa::KPiSMagalhaesElastic,
+	                                bp::wrapper<rpwa::KPiSMagalhaesElastic>
+	{
+
+		KPiSMagalhaesElasticWrapper(const double MMax)
+			: rpwa::KPiSMagalhaesElastic(MMax),
+			  bp::wrapper<rpwa::KPiSMagalhaesElastic>() { }
+
+		KPiSMagalhaesElasticWrapper(const rpwa::KPiSMagalhaesElastic& dep)
+			: rpwa::KPiSMagalhaesElastic(dep),
+			  bp::wrapper<rpwa::KPiSMagalhaesElastic>() { }
+
+		std::complex<double> amp(const rpwa::isobarDecayVertex& v) {
+			if(bp::override amp = this->get_override("amp")) {
+				return amp(v);
+			}
+			return rpwa::KPiSMagalhaesElastic::amp(v);
+		}
+
+		std::complex<double> default_amp(const rpwa::isobarDecayVertex& v) {
+			return rpwa::KPiSMagalhaesElastic::amp(v);
+		}
+
+		std::string name() const {
+			if(bp::override name = this->get_override("name")) {
+				return name();
+			}
+			return rpwa::KPiSMagalhaesElastic::name();
+		}
+
+		std::string default_name() const {
+			return rpwa::KPiSMagalhaesElastic::name();
+		}
+
+	};
 }
 
 
@@ -585,6 +621,13 @@ void rpwa::py::exportMassDependence() {
 		.def("name", &KPiSPalanoPenningtonWrapper::name, &KPiSPalanoPenningtonWrapper::default_name)
 		.def("name", &rpwa::KPiSPalanoPennington::name);
 
+	bp::class_<KPiSMagalhaesElasticWrapper, bp::bases<rpwa::massDependence> >("KPiSMagalhaesElastic", bp::init<const double>())
+		.def(bp::self_ns::str(bp::self))
+		.def("amp", &KPiSMagalhaesElasticWrapper::amp, &KPiSMagalhaesElasticWrapper::default_amp)
+		.def("amp", &rpwa::KPiSMagalhaesElastic::amp)
+		.def("name", &KPiSMagalhaesElasticWrapper::name, &KPiSMagalhaesElasticWrapper::default_name)
+		.def("name", &rpwa::KPiSMagalhaesElastic::name);
+
 	bp::register_ptr_to_python<rpwa::massDependencePtr>();
 	bp::register_ptr_to_python<rpwa::flatMassDependencePtr>();
 	bp::register_ptr_to_python<rpwa::binnedMassDependencePtr>();
@@ -598,5 +641,6 @@ void rpwa::py::exportMassDependence() {
 	bp::register_ptr_to_python<rpwa::rhoPrimeMassDepPtr>();
 	bp::register_ptr_to_python<rpwa::KPiSGLASSPtr>();
 	bp::register_ptr_to_python<rpwa::KPiSPalanoPenningtonPtr>();
+	bp::register_ptr_to_python<rpwa::KPiSMagalhaesElasticPtr>();
 
 }

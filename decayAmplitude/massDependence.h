@@ -490,9 +490,47 @@ namespace rpwa {
 		double _kaonChargedMass;
 		double _etaMass;
 	};
-
-
 	typedef boost::shared_ptr<KPiSPalanoPennington> KPiSPalanoPenningtonPtr;
+
+
+	//////////////////////////////////////////////////////////////////////////////
+	/// Brief
+	class KPiSMagalhaesElastic: public massDependenceImpl<KPiSMagalhaesElastic> {
+
+	public:
+
+		KPiSMagalhaesElastic(const double MMax);
+		~KPiSMagalhaesElastic(){ }
+
+		using massDependenceImpl<KPiSMagalhaesElastic>::Create;
+		static boost::shared_ptr<KPiSMagalhaesElastic> Create(const libconfig::Setting* settings);
+
+		virtual std::string parentLabelForWaveName(const isobarDecayVertex& v) const;  ///< returns label for parent of decay used in wave name
+
+		virtual std::complex<double> amp(const isobarDecayVertex& v);
+
+		static constexpr const char* cName = "KPiSMagalhaesElastic";
+
+	private:
+
+		double lambda(const double x, const double y, const double z) const;
+		double rhoKpi(const double s) const;
+		double reL(const double s) const; // Real part of the loop
+		double imL(const double s) const; // Imaginary part of the loop
+		double gamma2(const double s) const;
+		double _MMax;       // maximal mass of this amplitude, returns 0 above this mass
+		// parameters from fit to LASS data up to 1.5 GeV with free scaling factor in front of amplitude
+		static constexpr double _piChargedMass = 0.13957061;
+		static constexpr double _kaonChargedMass = 0.493677;
+		static constexpr double _C = 0.0153641619439;
+		static constexpr double _fKpi = 0.102722;
+		static constexpr double _ed = 0.435638077033;
+		static constexpr double _em = 0.965917788182;
+		static constexpr double _mKappa = 1.01095807053;
+	};
+	typedef boost::shared_ptr<KPiSMagalhaesElastic> KPiSMagalhaesElasticPtr;
+
+
 }  // namespace rpwa
 
 
