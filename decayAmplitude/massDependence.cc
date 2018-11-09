@@ -685,8 +685,8 @@ KPiSGLASS::Create(const libconfig::Setting* massDepKey)
 
 		return KPiSGLASS::Create(a, r, M0, G0, phiF, phiR, phiRsin, F, R, MMax, tag);
 	} else {
-		printErr<< "no configuration given for mass dependence '" << Name() << "'. Aborting..." << endl;
-		throw;
+		printWarn << "no configuration given for mass dependence '" << Name() << "'. Using parameters of LASS parameterization." << endl;
+		return KPiSGLASS::Create(1.95, 1.76, 1.435, 0.279, 0.0, 0.0, 0.0, 1.0, 1.0, 5.0, "LASS");
 	}
 }
 
