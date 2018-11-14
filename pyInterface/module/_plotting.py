@@ -6,17 +6,10 @@ import pyRootPwa.utils
 from pyRootPwa.utils import printErr
 ROOT = pyRootPwa.utils.ROOT
 
-def _buildLabelFromHash(fitResultFilenames, description):
-	label = hashlib.sha1()
-	label.update(description)
-	for filename in fitResultFilenames:
-		label.update(os.path.realpath(filename))
-		label.update(str(os.path.getmtime(filename)))
-	return label.hexdigest()[0:7]
 
 
 class plotcollection(object):
-	def __init__(self, fitResultFilenames = None, description = ""):
+	def __init__(self, fitResultFilenames = None, description = "", label=None):
 		self._multibinPlots = {}
 		self._multibinSummedPlots = {} # indices: [<summing-variable>][<multibin>],
 		                               # where <multibin> is a multibin in all variables except the summed one
@@ -25,9 +18,12 @@ class plotcollection(object):
 		self._labels = []
 
 		if fitResultFilenames is not None:
-			self._labels.append(_buildLabelFromHash(fitResultFilenames, description))
-			self._descriptions[self._labels[0]] = description
-			self._initFromFitresultsFilenames(fitResultFilenames)
+			if label is None:
+				label = plotcollection.buildLabelFromHash(fitResultFilenames, description)
+			self._labels.append(label)
+			if fitResultFilenames is not None:
+				self._descriptions[self._labels[0]] = description
+				self._initFromFitresultsFilenames(fitResultFilenames)
 
 
 	def _initFromFitresultsFilenames(self, fitResultFilenames):
@@ -64,10 +60,8 @@ class plotcollection(object):
 		for _,multibinPlots in self.iterMultibinPlots():
 			multibinPlots.buildDefaultPlots()
 
-		self._buildMultibinSummedPlots()
 
-
-	def _buildMultibinSummedPlots(self):
+	def buildMultibinSummedPlots(self):
 		if not self._multibinPlots:
 			return
 
@@ -104,7 +98,7 @@ class plotcollection(object):
 			else:
 				self.addMultiBin(multibin, multibinplots = other.multibinPlots(multibin))
 
-		# merge multibin-summed plos
+		# merge multibin-summed plots
 		for variable, multibin, multibinplots in other.iterMultibinSummedPlots():
 			if variable in self._multibinSummedPlots:
 				if multibin in self._multibinSummedPlots[variable]:
@@ -198,6 +192,8 @@ class plotcollection(object):
 		'''
 		@return multibinPlots object of the given multibin
 		'''
+		if isinstance(multibin, int):
+			multibin = self.multibins()[multibin]
 		return self._multibinPlots[multibin]
 
 
@@ -317,3 +313,12 @@ class plotcollection(object):
 						self._multibinSummedPlots[variable][multibin] = mbsp
 		fileIn.Close()
 		return True
+
+	@classmethod
+	def buildLabelFromHash(cls, fitResultFilenames, description):
+		label = hashlib.sha1()
+		label.update(description)
+		for filename in fitResultFilenames:
+			label.update(os.path.realpath(filename))
+			label.update(str(os.path.getmtime(filename)))
+		return label.hexdigest()[0:7]

@@ -117,6 +117,7 @@ rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePa
 		intensitySpectrumRegEx(wavenamePattern);
 	}
 
+
 	std::vector<std::string> waveNamesOrderedByIntensity = waveNamesSortedByIntensity();
 	// build phase plots
 	for (const auto& waveNameA : _metadata.waveNames) {
@@ -671,8 +672,9 @@ rpwa::multibinPlots::genIntensitySpectrumRegEx(const std::string& waveNamePatter
 		int i = 0;
 		for (const auto& mass_results : _fitResultsInMassbins) {
 			const fitResult& result = mass_results.second[0];
-			const double I = result.intensity(waveNamePattern);
-			const double Ierr = result.hasHessian() ? result.intensityErr(waveNamePattern) : 0.0;
+			const vector<unsigned int> waveIndices = result.waveIndicesMatchingPattern(waveNamePattern);
+			const double I = result.intensity(waveIndices);
+			const double Ierr = result.covMatrixValid() ? result.intensityErr(waveIndices) : 0.0;
 			const double x = result.multibinCenter().at("mass");
 			const double xerr = 0.5 * (result.multibinBoundaries().at("mass").second - result.multibinBoundaries().at("mass").first);
 			p->SetPoint(i, x, I);
