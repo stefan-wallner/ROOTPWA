@@ -1022,51 +1022,15 @@ fitResult::overlapErr(const unsigned int waveIndexA,
 }
 
 
-/// \brief calculates intensity for set of waves matching name pattern
+/// \brief calculates intensity for set of waves
 ///
 /// int = sum_i int(i) + sum_i sum_{j < i} overlap(i, j)
 double
-fitResult::intensity(const string& waveNamePattern) const
+fitResult::intensity(const vector<unsigned int>& waveIndices) const
 {
-	const vector<unsigned int> waveIndices = waveIndicesMatchingPattern(waveNamePattern);
 	const unsigned int         nmbWaves    = waveIndices.size();
 	if (nmbWaves == 0) {
 		return 0;
-	}
-	if (nmbWaves == 1) {
-		return intensity(waveIndices[0]);
-	}
-
-	double intensity = 0;
-	for (unsigned int i = 0; i < nmbWaves; ++i) {
-		intensity += this->intensity(waveIndices[i]);
-		for (unsigned int j = 0; j < i; ++j) {
-			intensity += overlap(waveIndices[i], waveIndices[j]);
-		}
-	}
-	return intensity;
-}
-
-
-/// \brief calculates error of intensity of a set of waves matching name pattern
-///
-/// error calculation is performed on amplitude level using: int = sum_ij Norm_ij sum_r A_ir A_jr*
-double
-fitResult::intensityErr(const string& waveNamePattern) const
-{
-	if (not covMatrixValid()) {
-		printWarn << "fitResult does not have a valid error matrix. Returning zero error for intensity." << endl;
-		return 0.;
-	}
-
-	// get amplitudes that correspond to wave name pattern
-	const vector<unsigned int> waveIndices = waveIndicesMatchingPattern(waveNamePattern);
-	const unsigned int         nmbWaves    = waveIndices.size();
-	if (nmbWaves == 0) {
-		return 0;
-	}
-	if (nmbWaves == 1) {
-		return intensityErr(waveIndices[0]);
 	}
 
 	vector<unsigned int> prodAmpIndices;
@@ -1075,6 +1039,54 @@ fitResult::intensityErr(const string& waveNamePattern) const
 		prodAmpIndices.insert(prodAmpIndices.end(), prodAmpIndicesWave.begin(), prodAmpIndicesWave.end());
 	}
 	const unsigned int nmbAmps = prodAmpIndices.size();
+	vector<int> rank;
+	rank.reserve(prodAmpIndices.size());
+	for_each(prodAmpIndices.begin(), prodAmpIndices.end(), [&] (unsigned int i){rank.push_back(this->rankOfProdAmp(i));});
+	vector<int> refl;
+	refl.reserve(prodAmpIndices.size());
+	for_each(prodAmpIndices.begin(), prodAmpIndices.end(), [&] (unsigned int i){refl.push_back(partialWaveFitHelper::getReflectivity(waveNameForProdAmp(i)));});
+
+	complex<double>  intensity     = 0;  // sum_{i,j} T_i T*_j I_{i,j} deltaRef_{i,j} deltaRank_{i,j}
+	for (unsigned int i = 0; i < nmbAmps; ++i) {
+		const complex<double> ampI = prodAmp(prodAmpIndices[i]);
+		const int reflI = refl[i];
+		const int rankI = rank[i];
+		for (unsigned int j = 0; j < nmbAmps; ++j) {
+			if (rank[j] == rankI and refl[j] == reflI){
+				intensity += ampI*conj(prodAmp(prodAmpIndices[j])) * normIntegralForProdAmp(prodAmpIndices[i], prodAmpIndices[j]);
+			}
+		}
+	}
+	return static_cast<double>(normNmbEvents())*intensity.real();
+}
+
+
+double
+fitResult::intensityErr(const vector<unsigned int>& waveIndices) const
+{
+	if (not covMatrixValid()) {
+		printWarn << "fitResult does not have a valid error matrix. Returning zero error for intensity." << endl;
+		return 0.;
+	}
+
+	// get amplitudes that correspond to wave name pattern
+	const unsigned int         nmbWaves    = waveIndices.size();
+	if (nmbWaves == 0) {
+		return 0;
+	}
+
+	vector<unsigned int> prodAmpIndices;
+	for (unsigned int i = 0; i < nmbWaves; ++i) {
+		const vector<unsigned int> prodAmpIndicesWave = prodAmpIndicesForWave(waveIndices[i]);
+		prodAmpIndices.insert(prodAmpIndices.end(), prodAmpIndicesWave.begin(), prodAmpIndicesWave.end());
+	}
+	const unsigned int nmbAmps = prodAmpIndices.size();
+	vector<int> rank;
+	rank.reserve(prodAmpIndices.size());
+	for_each(prodAmpIndices.begin(), prodAmpIndices.end(), [&] (unsigned int i){rank.push_back(this->rankOfProdAmp(i));});
+	vector<int> refl;
+	refl.reserve(prodAmpIndices.size());
+	for_each(prodAmpIndices.begin(), prodAmpIndices.end(), [&] (unsigned int i){refl.push_back(partialWaveFitHelper::getReflectivity(waveNameForProdAmp(i)));});
 
 	// build Jacobian for intensity, which is a 1 x 2n matrix composed of n sub-Jacobians:
 	// J = (JA_0, ..., JA_{n - 1}), where n is the number of production amplitudes
@@ -1083,14 +1095,12 @@ fitResult::intensityErr(const string& waveNamePattern) const
 		// build sub-Jacobian for each amplitude; intensity is real valued function, so J has only one row
 		// JA_ir = 2 * sum_j (A_jr Norm_ji)
 		complex<double>  ampNorm     = 0;  // sum_j (A_jr Norm_ji)
-		const int        currentRefl = partialWaveFitHelper::getReflectivity(waveNameForProdAmp(prodAmpIndices[i]));
-		const int        currentRank = rankOfProdAmp(prodAmpIndices[i]);
+		const int        currentRefl = refl[i];
+		const int        currentRank = rank[i];
 		for (unsigned int j = 0; j < nmbAmps; ++j) {
-			if (partialWaveFitHelper::getReflectivity(waveNameForProdAmp(prodAmpIndices[j])) != currentRefl)
-				continue;
-			if (rankOfProdAmp(prodAmpIndices[j]) != currentRank)
-				continue;
-			ampNorm += prodAmp(prodAmpIndices[j]) * normIntegralForProdAmp(prodAmpIndices[j], prodAmpIndices[i]);  // order of indices is essential
+			if(rank[j] == currentRank and refl[j] == currentRefl){
+				ampNorm += prodAmp(prodAmpIndices[j]) * normIntegralForProdAmp(prodAmpIndices[j], prodAmpIndices[i]);  // order of indices is essential
+			}
 		}
 		jacobian[0][2 * i    ] = ampNorm.real();
 		jacobian[0][2 * i + 1] = ampNorm.imag();

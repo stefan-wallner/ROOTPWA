@@ -316,17 +316,21 @@ namespace rpwa {
 		// * access by wave indices
 
 		/// returns intensity of single wave at index
-		double intensity   (const unsigned int waveIndex) const { return spinDensityMatrixElem(waveIndex, waveIndex).real() * normIntegral(waveIndex, waveIndex).real();         }
+		double intensity   (const unsigned int waveIndex) const { return intensity( std::vector<unsigned int>(1,waveIndex) ); }
 		/// returns error of intensity of single wave at index
-		double intensityErr(const unsigned int waveIndex) const { return sqrt(spinDensityMatrixElemCov(waveIndex, waveIndex)[0][0]) * normIntegral(waveIndex, waveIndex).real(); }
+		double intensityErr(const unsigned int waveIndex) const { return intensityErr( std::vector<unsigned int>(1, waveIndex) ); }
 
 		// accessors to intensities
 		// * access by wave name patterns
+		/// returns intensity of the sum of the waves with the given wave indices
+		double intensity   (const std::vector<unsigned int>& waveIndices) const;
+		/// returns error of intensity of sum of waves with the given wave indices
+		double intensityErr(const std::vector<unsigned int>& waveIndices) const;
 
 		/// returns intensity of sum of waves matching name pattern
-		double intensity   (const std::string& waveNamePattern) const;
+		double intensity   (const std::string& waveNamePattern) const { return intensity(waveIndicesMatchingPattern(waveNamePattern)); }
 		/// returns error of intensity of sum of waves matching name pattern
-		double intensityErr(const std::string& waveNamePattern) const;
+		double intensityErr(const std::string& waveNamePattern) const { return intensityErr(waveIndicesMatchingPattern(waveNamePattern)); }
 
 		// accessors to intensities
 		// * total intensity
@@ -591,19 +595,27 @@ namespace rpwa {
 		    != rpwa::partialWaveFitHelper::getReflectivity(waveName(waveIndexB))) {
 			return prodAmpIndexPairs;
 		}
-
 		const std::vector<unsigned int> prodAmpIndicesA = prodAmpIndicesForWave(waveIndexA);
-		const std::vector<unsigned int> prodAmpIndicesB = prodAmpIndicesForWave(waveIndexB);
-		for (unsigned int countAmpA = 0; countAmpA < prodAmpIndicesA.size(); ++countAmpA) {
-			const unsigned int ampIndexA = prodAmpIndicesA[countAmpA];
-			const int          ampRankA  = rankOfProdAmp(ampIndexA);
-			// find production amplitude of wave B with same rank
-			for (unsigned int countAmpB = 0; countAmpB < prodAmpIndicesB.size(); ++countAmpB) {
-				const unsigned int ampIndexB = prodAmpIndicesB[countAmpB];
-				const int          ampRankB  = rankOfProdAmp(ampIndexB);
-				if (ampRankA == ampRankB) {
-					prodAmpIndexPairs.push_back(std::make_pair(ampIndexA, ampIndexB));
-					break;
+		prodAmpIndexPairs.reserve(prodAmpIndicesA.size());
+
+		if (waveIndexA == waveIndexB){
+			for(unsigned int ampIndexA: prodAmpIndicesA)
+					prodAmpIndexPairs.push_back(std::make_pair(ampIndexA, ampIndexA));
+		} else {
+			const std::vector<unsigned int> prodAmpIndicesB = prodAmpIndicesForWave(waveIndexB);
+			std::vector<int> ranksB; ranksB.reserve(prodAmpIndicesB.size());
+			std::for_each(prodAmpIndicesB.begin(), prodAmpIndicesB.end(), [&](const int i){ranksB.push_back(this->rankOfProdAmp(i));});
+			for (unsigned int countAmpA = 0; countAmpA < prodAmpIndicesA.size(); ++countAmpA) {
+				const unsigned int ampIndexA = prodAmpIndicesA[countAmpA];
+				const int          ampRankA  = rankOfProdAmp(ampIndexA);
+				// find production amplitude of wave B with same rank
+				for (unsigned int countAmpB = 0; countAmpB < prodAmpIndicesB.size(); ++countAmpB) {
+					const unsigned int ampIndexB = prodAmpIndicesB[countAmpB];
+					const int          ampRankB  = ranksB[countAmpB];
+					if (ampRankA == ampRankB) {
+						prodAmpIndexPairs.push_back(std::make_pair(ampIndexA, ampIndexB));
+						break;
+					}
 				}
 			}
 		}
