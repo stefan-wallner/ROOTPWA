@@ -167,7 +167,7 @@ namespace rpwa {
 
 		/***
 		 * Load fit results and plots from the given root directory
-		 * @param onlyBest if true, load only the best fit result ber mass bin
+		 * @param onlyBest if true, load only the best fit result per mass bin
 		 * @return true if load was successful
 		 */
 		bool load(TDirectory* directory, const bool onlyBest=false);

@@ -276,8 +276,9 @@ class plotcollection(object):
 		return True
 
 
-	def load(self, filenameOrRootfile):
+	def load(self, filenameOrRootfile, onlyBest=False):
 		'''
+		@param onlyBest: If true, load only the best fit result in each bin
 		@return True if loading was successful
 		'''
 		fileIn = None
@@ -307,12 +308,22 @@ class plotcollection(object):
 						multibin = pyRootPwa.utils.multiBin.fromUniqueStr(kMultibin.GetName()[5:])
 						dirIn = kMultibin.ReadObj()
 						mbsp = pyRootPwa.core.multibinPlots()
-						mbsp.load(dirIn)
+						mbsp.load(dirIn, onlyBest)
 						if variable not in self._multibinSummedPlots:
 							self._multibinSummedPlots[variable] = {}
 						self._multibinSummedPlots[variable][multibin] = mbsp
 		fileIn.Close()
 		return True
+
+	@classmethod
+	def loadFromFile(cls, filenameOrRootfile, onlyBest=False):
+		'''
+		@param onlyBest: If true, load only the best fit result in each bin
+		@rtype: plotcollection
+		'''
+		collection = cls()
+		collection.load(filenameOrRootfile, onlyBest=onlyBest)
+		return collection
 
 	@classmethod
 	def buildLabelFromHash(cls, fitResultFilenames, description):
