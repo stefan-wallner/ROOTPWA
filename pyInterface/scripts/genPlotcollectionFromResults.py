@@ -6,6 +6,7 @@ import multiprocessing
 import sys
 import tempfile
 import os
+import glob
 import pyRootPwa
 import pyRootPwa.utils
 
@@ -19,7 +20,7 @@ if __name__ == "__main__":
 	                                             """
 	                                )
 
-	parser.add_argument("fitResults", type=str, metavar="fitResults", nargs='+', help="fitResult to get the production amplitudes")
+	parser.add_argument("fitResults", type=str, metavar="fitResults", nargs='+', help="Files with fit results or folder containing .root files with fit resuls.")
 	parser.add_argument("-o", "--output", type=str, metavar="output", dest="output", default="plotcollection.root",
 	                    help="path to output file (default: '%(default)s')")
 	parser.add_argument("-d", "--description", type=str, metavar="description", dest="description", default="" ,
@@ -41,12 +42,21 @@ if __name__ == "__main__":
 		else:
 			sys.exit(1)
 
+	fitResults = []
+	for path in args.fitResults:
+		if os.path.isfile(path):
+			fitResults.append(path)
+		elif os.path.isdir(path):
+			fitResults += glob.glob(os.path.join(path, "*.root"))
+		else:
+			raise Exception("Cannot find '{0}'!".format(path))
+
 	if not args.parallel:
-		plotcollection = pyRootPwa.plotcollection(args.fitResults, description=args.description, label=args.label if args.label else None)
+		plotcollection = pyRootPwa.plotcollection(fitResults, description=args.description, label=args.label if args.label else None)
 		plotcollection.buildMultibinSummedPlots()
 		statusOk = plotcollection.write(args.output)
 	else:
-		label = pyRootPwa.plotcollection.buildLabelFromHash(args.fitResults, args.description)
+		label = pyRootPwa.plotcollection.buildLabelFromHash(fitResults, args.description)
 		processes = []
 		def _worker(fitResultFilename):
 			filedescriptor, tmpFilename = tempfile.mkstemp("_genPlotcollectionFromResults.root")
@@ -57,8 +67,8 @@ if __name__ == "__main__":
 			if not statusOk:
 				raise Exception("Cannot build plotcollection forom file '{0}'.".format(fitResultFilename))
 			return tmpFilename
-		pool = multiprocessing.Pool(min(len(args.fitResults), multiprocessing.cpu_count()*2))
-		tmpFilenames = pool.map(_worker, args.fitResults)
+		pool = multiprocessing.Pool(min(len(fitResults), multiprocessing.cpu_count()*2))
+		tmpFilenames = pool.map(_worker, fitResults)
 		def _cleanup():
 			for filename in tmpFilenames:
 				if os.path.exists(filename):
