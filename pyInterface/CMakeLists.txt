@@ -130,6 +130,7 @@ set(RPWA_PYTHON_SCRIPTS_FILES
 	plotAngles.py
 	printMetadata.py
 	pwaFit.py
+	mergeFitResults.py
 )
 if(USE_BAT)
 	LIST(APPEND RPWA_PYTHON_SCRIPTS_FILES genPseudoDataImportanceSampling.py)
