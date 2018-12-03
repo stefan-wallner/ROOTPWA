@@ -393,7 +393,8 @@ namespace {
 	fitResult_getFitResultsFromFilesInMutibins(bp::list& fileNamesPy, const std::string& treeName,
 	                                           const std::string& branchName,
 	                                           const bool onlyBestInMultibin, const bool stripMatricesFromFurtherAttempts,
-	                                           const bool onlyConvergedResults) {
+	                                           const bool onlyConvergedResults,
+	                                           const bool quiet) {
 		bp::dict pyFitResultsInMultibins;
 		std::vector<std::string> fileNames;
 		if( rpwa::py::convertBPObjectToVector(fileNamesPy, fileNames)){
@@ -404,7 +405,8 @@ namespace {
 															branchName,
 															onlyBestInMultibin,
 															stripMatricesFromFurtherAttempts,
-															onlyConvergedResults);
+															onlyConvergedResults,
+															quiet);
 
 
 			for (auto& elem : fitResultsInMultibins) {
@@ -537,6 +539,13 @@ void rpwa::py::exportFitResult() {
 
 	bp::register_ptr_to_python<rpwa::fitResultPtr>();
 
-	bp::def("getFitResultsFromFilesInMultibins", &fitResult_getFitResultsFromFilesInMutibins);
+	bp::def("getFitResultsFromFilesInMultibins", &fitResult_getFitResultsFromFilesInMutibins,
+	        (bp::arg("fileNames"),
+	         bp::arg("treeName"),
+	         bp::arg("branchName"),
+	         bp::arg("onlyBestResultInMultibin"),
+	         bp::arg("stripMatricesFromFurtherAttempts"),
+	         bp::arg("onlyConvergedResults"),
+	         bp::arg("quiet") = false));
 
 }

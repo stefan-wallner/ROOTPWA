@@ -655,7 +655,8 @@ namespace rpwa {
 	/// \param stripMatricesFromNotBestResults if true, the covariance and integral matrices will be striped
 	///                                         from all fit results except the best one and the best converged one
 	///                                         in each multibin
-	/// \param onlyConvergedResults considere only converged results (to load and also for the best result)
+	/// \param onlyConvergedResults consider only converged results (to load and also for the best result)
+	/// \param quiet print only warnings and errors
 	/// \return map with binningMap as key and list of fit results as value
 	std::map<rpwa::multibinBoundariesType, std::list<rpwa::fitResult>> getFitResultsFromFilesInMultibins(
 	                 const std::vector<std::string>& fileNames,
@@ -663,7 +664,8 @@ namespace rpwa {
 	                 const std::string& branchName,
 	                 const bool onlyBestResultInMultibin,
 	                 const bool stripMatricesFromNotBestResults,
-	                 const bool onlyConvergedResults);
+	                 const bool onlyConvergedResults,
+	                 const bool quiet = false);
 
 }  // namespace rpwa
 

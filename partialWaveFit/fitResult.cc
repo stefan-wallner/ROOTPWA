@@ -1112,7 +1112,8 @@ rpwa::getFitResultsFromFilesInMultibins(
                                         const std::string& branchName,
                                         const bool onlyBestResultInMultibin,
                                         const bool stripMatricesFromNotBestResults,
-                                        const bool onlyConvergedResults) {
+                                        const bool onlyConvergedResults,
+                                        const bool quiet) {
 	std::map<rpwa::multibinBoundariesType, std::list<rpwa::fitResult> > fitResultsInMultibins;
 	std::unique_ptr<fitResult> inputFitResult(new fitResult);
 	fitResult* inputFitResultPtr = inputFitResult.get();
@@ -1147,7 +1148,8 @@ rpwa::getFitResultsFromFilesInMultibins(
 	std::map<rpwa::multibinBoundariesType, std::pair<size_t, int> > fileTreeEntryOfBestConvergedResult;
 	std::map<rpwa::multibinBoundariesType, std::list<rpwa::fitResult>::iterator > iterOfBestConvergedResult;
 	for (size_t i = 0; i < trees.size(); ++i) {
-		printInfo << "load fit results from file '" << fileNames[i] << "'" << std::endl;
+		if (not quiet)
+			printInfo << "load fit results from file '" << fileNames[i] << "'" << std::endl;
 
 		TTree* tree = trees[i];
 		for (int j = 0; j < tree->GetEntries(); ++j) {
