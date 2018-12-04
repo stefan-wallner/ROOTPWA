@@ -117,11 +117,12 @@ class plotcollection(object):
 		self._waveNames = sorted(list(set(  self._waveNames + other.waveNames() )))
 		return True
 
-	def addMultiBin(self, multibin, fitresults = None, dirIn = None, multibinplots = None):
+	def addMultiBin(self, multibin, fitresults = None, dirIn = None, multibinplots = None, onlyBest = False):
 		'''
 		Add a further multibin to this plot collection
 		@param fitresults: if given, multibin is greated from fit results
 		@param dirIn: if given, multibin is loaded from ROOT-file directory
+		@param onlyBest: if dirIn given, load only the best results from dir
 		@param multibinplots: if given, the multibinplots object will be added to this plot collection
 		'''
 		if multibin in self._multibinPlots:
@@ -136,7 +137,7 @@ class plotcollection(object):
 			gc.collect()
 		elif dirIn is not None:
 			mbp = pyRootPwa.core.multibinPlots()
-			if mbp.load(dirIn):
+			if mbp.load(dirIn, onlyBest):
 				self._multibinPlots[multibin] = mbp
 			else:
 				msg = "Cannot load multibinPlots from file"
@@ -298,7 +299,7 @@ class plotcollection(object):
 			if k.GetName().startswith("bin__"): # load multibin plots
 				multibin = pyRootPwa.utils.multiBin.fromUniqueStr(k.GetName()[5:])
 				dirIn = k.ReadObj()
-				self.addMultiBin(multibin, dirIn = dirIn)
+				self.addMultiBin(multibin, dirIn = dirIn, onlyBest=onlyBest)
 			if k.GetName() == "multibinSummed": # load multibin-summed plots
 				dirSummed = k.ReadObj()
 				for kVariable in dirSummed.GetListOfKeys():
