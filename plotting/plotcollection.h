@@ -143,6 +143,8 @@ namespace rpwa {
 		 */
 		void buildDefaultPlots(const std::vector<std::string> waveNamePatterns = {}, const size_t nRefWaves = 4);
 
+		void buildAdditionalPlots();
+
 		/***
 		 * Build the multibin-summed spectra from the list of plots in the individual multibins.
 		 * The following summed plots will be generated:

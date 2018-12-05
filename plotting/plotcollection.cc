@@ -129,6 +129,34 @@ rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePa
 
 	// build plots containing fit information
 	negLogLikeSpectrum();
+
+	buildAdditionalPlots();
+}
+
+void
+rpwa::multibinPlots::buildAdditionalPlots(){
+	//
+	componentPlot* plotIncoherentVsCoherentSum = static_cast<componentPlot*>(new componentPlot::baseType("incoherentVsCoherentSum", "sum abs(T)**2 / I"));
+	const auto coherentSums = intensitySpectrumRegEx(".*")->getMassindepComponents();
+	for (const auto& label_plot: coherentSums){
+		const string& label = label_plot.first;
+		const auto& plotCohSum = label_plot.second;
+		vector<double> incoherentSum(plotCohSum->GetN(), 0.0);
+		for(const auto& waveName: waveNames()){
+			const auto& plotWave = intensitySpectrum(waveName)->getMassindepComponents()[label];
+			assert(plotWave->GetN() == plotCohSum->GetN());
+			for (int i=0; i < plotCohSum->GetN(); ++i){
+				incoherentSum[i] += plotWave->GetY()[i];
+			}
+		}
+		componentPlot::plotType* p = nullptr;
+		p = new componentPlot::plotType(_fitResultsInMassbins.size());
+		for (int i=0; i < plotCohSum->GetN(); ++i){
+			p->SetPoint(i, plotCohSum->GetX()[i], incoherentSum[i] / plotCohSum->GetY()[i]);
+		}
+		plotIncoherentVsCoherentSum->addForComponent(plotComponents::massIndependent, label, p);
+	}
+	_additionalPlots["incoherentVsCoherentSum"] = plotIncoherentVsCoherentSum;
 }
 
 
