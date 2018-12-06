@@ -247,10 +247,9 @@ namespace {
 	}
 
 
-	PyObject*
+	rpwa::componentPlot*
 	multibinPlots_getAdditionalPlot(rpwa::multibinPlots& self, const bp::str& name) {
-		TMultiGraph* mp = self.getAdditionalPlot(bp::extract<std::string>(name));
-		return TPython::ObjectProxy_FromVoidPtr(mp, mp->ClassName(), false);
+		return self.getAdditionalPlot(bp::extract<std::string>(name));
 	}
 
 
@@ -307,7 +306,7 @@ rpwa::py::exportPlotcollection() {
 	        .def("massBinCenters", &rpwa::multibinPlots::massBinCenters)
 	        .def("massBinBoundaries", &rpwa::multibinPlots::massBinBoundaries)
 	        .def("waveNames", &multibinPlots_waveNames)
-	        .def("getAdditionalPlot", &multibinPlots_getAdditionalPlot)
+	        .def("getAdditionalPlot", &multibinPlots_getAdditionalPlot, bp::return_internal_reference<>())
 	        .def("addAdditionalPlot", &multibinPlots_addAdditionalPlot)
 	        .def("descriptions", &multibinPlots_descriptions)
 	        .def("labels", &multibinPlots_labels)
