@@ -110,11 +110,11 @@ namespace {
 	multibinPlots_constructor(const bp::list& fitResults, const bp::str& label, const bp::str& desc) {
 
 		std::vector<rpwa::fitResult> cFitResults;
+		cFitResults.reserve(bp::len(fitResults));
 		for (int i = 0; i < bp::len(fitResults); ++i) {
 			cFitResults.push_back(bp::extract<rpwa::fitResult>(fitResults[i]));
-
 		}
-		return boost::shared_ptr<rpwa::multibinPlots>(new rpwa::multibinPlots(cFitResults,
+		return boost::shared_ptr<rpwa::multibinPlots>(new rpwa::multibinPlots(std::move(cFitResults),
 		        bp::extract<std::string>(label),
 		        bp::extract<std::string>(desc)));
 	}

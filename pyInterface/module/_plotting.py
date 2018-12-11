@@ -1,6 +1,7 @@
 import gc
 import hashlib
 import os
+from collections import defaultdict
 import pyRootPwa.core
 import pyRootPwa.utils
 from pyRootPwa.utils import printErr
@@ -44,17 +45,21 @@ class plotcollection(object):
 
 
 		pyRootPwa.utils.printInfo("Building multibin plots")
+		# first group fit results by multibin
+		fitresultsInMultibin = defaultdict(list)
 		for multibin in multibins:
-			# find all fit results in this multibin
-			fitresultsInMultibin = []
 			for multibinResults, results in fitresults.iteritems():
 				if multibinResults in multibin:
-					fitresultsInMultibin += results
-
-			self.addMultiBin(multibin, fitresults=fitresultsInMultibin)
+					fitresultsInMultibin[multibin] += results
 		del fitresults.values()[:]
 		del fitresults
 		gc.collect()
+
+		for multibin in multibins:
+			self.addMultiBin(multibin, fitresults=fitresultsInMultibin[multibin])
+			del fitresults[multibin][:]
+			del fitresults[multibin]
+			gc.collect()
 
 		pyRootPwa.utils.printInfo("Building default plots")
 		for _,multibinPlots in self.iterMultibinPlots():
@@ -132,9 +137,6 @@ class plotcollection(object):
 
 		if fitresults is not None:
 			self._multibinPlots[multibin] = pyRootPwa.core.multibinPlots(fitresults, self._labels[0], self._descriptions[self._labels[0]])
-			del fitresults[:]
-			del fitresults
-			gc.collect()
 		elif dirIn is not None:
 			mbp = pyRootPwa.core.multibinPlots()
 			if mbp.load(dirIn, onlyBest):

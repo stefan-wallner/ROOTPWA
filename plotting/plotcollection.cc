@@ -31,7 +31,7 @@ rpwa::multibinPlots::multibinPlots():
 }
 
 
-rpwa::multibinPlots::multibinPlots(const std::vector<rpwa::fitResult>& fitresults, const std::string& label, const std::string& description) :
+rpwa::multibinPlots::multibinPlots(std::vector<rpwa::fitResult>&& fitresults, const std::string& label, const std::string& description) :
 		_initialized(true),
 		_negLogLikeSpectrum(nullptr){
 
@@ -43,17 +43,35 @@ rpwa::multibinPlots::multibinPlots(const std::vector<rpwa::fitResult>& fitresult
 	_metadata.descriptions.push_back(description);
 	_metadata.labels.push_back(label);
 
-	std::map<double, std::vector<const fitResult*>> fitResultPtrsInMassbins;
+	// build wave names
+	std::set<std::string> waveNamesSet;
+	// find all waves
+	for(const auto& fitResult: fitresults) {
+		for(const auto& waveName: fitResult.waveNames()) {
+			waveNamesSet.insert(waveName);
+		}
+	}
+	for(const auto& waveName: waveNamesSet) {
+		_metadata.waveNames.push_back(waveName);
+	}
+
+	std::map<double, std::vector<fitResult>> fitResultInMassbins;
 	// sort results by mass bin
-	for(const auto& fitresult: fitresults) {
+	while (fitresults.size() > 0){
+		const fitResult& fitresult = fitresults.back();
 		const double massBinCenter = fitresult.massBinCenter();
-		fitResultPtrsInMassbins[massBinCenter].push_back(&fitresult);
+		fitResultInMassbins[massBinCenter].push_back(fitresult);
+		fitresults.pop_back();
 	}
 
 	// sort fitResults by convergence, neg log-like, and has valid cov. matrix
-	for(auto& massFitResults: fitResultPtrsInMassbins) {
+	for(auto& massFitResults: fitResultInMassbins) {
 		const double massBinCenter = massFitResults.first;
-		std::vector<const fitResult*>& fitResultPtrs = massFitResults.second;
+		std::vector<fitResult>& fitResults = massFitResults.second;
+		// build vector of pointers to sort
+		std::vector<const fitResult*> fitResultPtrs;
+		fitResultPtrs.reserve(fitResults.size());
+		for(const auto& result: fitResults) fitResultPtrs.push_back(&result);
 		std::sort(fitResultPtrs.begin(), fitResultPtrs.end(),
 				[](const fitResult* a, const fitResult* b) -> bool {
 					if(a->converged()) {
@@ -65,8 +83,9 @@ rpwa::multibinPlots::multibinPlots(const std::vector<rpwa::fitResult>& fitresult
 					}
 					return false;
 				});
-		_fitResultsInMassbins[massBinCenter].reserve(fitResultPtrs.size());
+		_fitResultsInMassbins[massBinCenter].reserve(fitResults.size());
 		for(const auto& fitResultPtr: fitResultPtrs) _fitResultsInMassbins[massBinCenter].push_back(*fitResultPtr);
+		fitResults.clear(); // clear memory
 	}
 
 	// check if the best fit result has the integral and covariance matrix
@@ -91,17 +110,6 @@ rpwa::multibinPlots::multibinPlots(const std::vector<rpwa::fitResult>& fitresult
 		}
 	}
 
-	// build wave names
-	std::set<std::string> waveNamesSet;
-	// find all waves
-	for(const auto& fitResult: fitresults) {
-		for(const auto& waveName: fitResult.waveNames()) {
-			waveNamesSet.insert(waveName);
-		}
-	}
-	for(const auto& waveName: waveNamesSet) {
-		_metadata.waveNames.push_back(waveName);
-	}
 }
 
 

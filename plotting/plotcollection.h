@@ -130,7 +130,7 @@ namespace rpwa {
 		 * @param fitresults List of fit results (can have multiple results per mass bin)
 		 * @param soltionDescription Description for the soltion the fit results belong to
 		 */
-		multibinPlots(const std::vector<rpwa::fitResult>& fitresults, const std::string& label, const std::string& description);
+		multibinPlots(std::vector<rpwa::fitResult>&& fitresults, const std::string& label, const std::string& description);
 
 		~multibinPlots() {}
 
