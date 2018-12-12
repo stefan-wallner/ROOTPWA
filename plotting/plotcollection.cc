@@ -90,6 +90,7 @@ rpwa::multibinPlots::multibinPlots(std::vector<rpwa::fitResult>&& fitresults, co
 
 	// check if the best fit result has the integral and covariance matrix
 	for(const auto& massbin_results: _fitResultsInMassbins) {
+		const double massbin = massbin_results.first;
 		const std::vector<fitResult>& results = massbin_results.second;
 		if(not results[0].converged()) {
 			printErr << "No converged solution found in massbin: " << results[0].massBinCenter() << std::endl;
@@ -106,7 +107,14 @@ rpwa::multibinPlots::multibinPlots(std::vector<rpwa::fitResult>&& fitresults, co
 		const double minLikelihood = std::min_element(results.begin(), results.end(),
 				[](const fitResult& a, const fitResult& b)->bool {return a.logLikelihood() < b.logLikelihood();})->logLikelihood();
 		if ( minLikelihood != results[0].logLikelihood()) {
-			printWarn << "Fit result with best log-likelihood is not converged and will be ignorded in massbin: " << results[0].massBinCenter() << " !" << std::endl;
+			printWarn << "Fit result with best log-likelihood is not converged and will be ignored in massbin: " << results[0].massBinCenter() << " !" << std::endl;
+		}
+		_metadata.nResultsInMassBin[massbin] = results.size();
+		_metadata.nConvergedResultsInMassBin[massbin] = 0;
+		_metadata.nBestResultInMassBin[massbin] = 0;
+		for (const auto& result: results){
+			if(result.converged()) _metadata.nConvergedResultsInMassBin[massbin] += 1;
+			if(fabs(result.logLikelihood()-results[0].logLikelihood()) < 1e-1) _metadata.nBestResultInMassBin[massbin] += 1;
 		}
 	}
 

@@ -118,8 +118,11 @@ namespace rpwa {
 		std::vector<std::string> descriptions;
 		std::vector<std::string> labels;
 		std::vector<std::string> waveNames;
+		std::map<double, size_t> nResultsInMassBin;
+		std::map<double, size_t> nConvergedResultsInMassBin;
+		std::map<double, size_t> nBestResultInMassBin;
 
-	ClassDef(multibinplotsMetadata, 1);
+	ClassDef(multibinplotsMetadata, 2);
 	};
 
 	class multibinPlots {
@@ -279,6 +282,21 @@ namespace rpwa {
 		 */
 		std::map<double, std::vector<fitResult> >& fitResultsInMassbins(){return _fitResultsInMassbins;}
 		const std::map<double, std::vector<fitResult> >& fitResultsInMassbins() const {return _fitResultsInMassbins;}
+
+		/***
+		 * @return Number of fit results in each mass bin
+		 */
+		const std::map<double, size_t>& nResultsInMassbins() const { return _metadata.nResultsInMassBin;}
+
+		/***
+		 * @return Number of converged fit results in each mass bin
+		 */
+		const std::map<double, size_t>& nConvergedResultsInMassbins() const { return _metadata.nConvergedResultsInMassBin;}
+
+		/***
+		 * @return Number of times the best fit result was found (within (logL - logL_best) < 1e-1) in each mass bin
+		 */
+		const std::map<double, size_t>& nBestResultInMassBin() const { return _metadata.nBestResultInMassBin;}
 
 		std::vector<double> massBinCenters() const;
 		std::vector<boundaryType> massBinBoundaries() const;
