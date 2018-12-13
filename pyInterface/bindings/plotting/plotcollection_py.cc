@@ -191,6 +191,36 @@ namespace {
 		return fitResultsInMassbins;
 	}
 
+	bp::dict
+	multibinPlots_nResultsInMassbins(rpwa::multibinPlots& self) {
+		const std::map<double, size_t >& nC = self.nResultsInMassbins();
+		bp::dict nPy;
+		for (const auto& mass_n: nC) {
+			nPy[mass_n.first] = mass_n.second;
+		}
+		return nPy;
+	}
+
+	bp::dict
+	multibinPlots_nConvergedResultsInMassbins(rpwa::multibinPlots& self) {
+		const std::map<double, size_t >& nC = self.nConvergedResultsInMassbins();
+		bp::dict nPy;
+		for (const auto& mass_n: nC) {
+			nPy[mass_n.first] = mass_n.second;
+		}
+		return nPy;
+	}
+
+	bp::dict
+	multibinPlots_nBestResultInMassbins(rpwa::multibinPlots& self) {
+		const std::map<double, size_t >& nC = self.nBestResultInMassBin();
+		bp::dict nPy;
+		for (const auto& mass_n: nC) {
+			nPy[mass_n.first] = mass_n.second;
+		}
+		return nPy;
+	}
+
 
 	bp::list
 	multibinPlots_waveNames(rpwa::multibinPlots& self) {
@@ -303,6 +333,9 @@ rpwa::py::exportPlotcollection() {
 	        .def("write", &multibinPlots_write)
 	        .def("load", &multibinPlots_load, (bp::args("directory"), bp::args("onlyBest") = false))
 	        .def("fitResultsInMassbins", &multibinPlots_fitResultsInMassbins)
+	        .def("nResultsInMassbins", &multibinPlots_nResultsInMassbins)
+	        .def("nConvergedResultsInMassbins", &multibinPlots_nConvergedResultsInMassbins)
+	        .def("nBestResultInMassBin", &multibinPlots_nBestResultInMassbins)
 	        .def("massBinCenters", &rpwa::multibinPlots::massBinCenters)
 	        .def("massBinBoundaries", &rpwa::multibinPlots::massBinBoundaries)
 	        .def("waveNames", &multibinPlots_waveNames)

@@ -57,8 +57,8 @@ class plotcollection(object):
 
 		for multibin in multibins:
 			self.addMultiBin(multibin, fitresults=fitresultsInMultibin[multibin])
-			del fitresults[multibin][:]
-			del fitresults[multibin]
+			del fitresultsInMultibin[multibin][:]
+			del fitresultsInMultibin[multibin]
 			gc.collect()
 
 		pyRootPwa.utils.printInfo("Building default plots")
