@@ -1113,7 +1113,8 @@ rpwa::getFitResultsFromFilesInMultibins(
                                         const bool onlyBestResultInMultibin,
                                         const bool stripMatricesFromNotBestResults,
                                         const bool onlyConvergedResults,
-                                        const bool quiet) {
+                                        const bool quiet,
+                                        const bool clearNames) {
 	std::map<rpwa::multibinBoundariesType, std::list<rpwa::fitResult> > fitResultsInMultibins;
 	std::unique_ptr<fitResult> inputFitResult(new fitResult);
 	fitResult* inputFitResultPtr = inputFitResult.get();
@@ -1164,6 +1165,7 @@ rpwa::getFitResultsFromFilesInMultibins(
 			if (not onlyBestResultInMultibin) {
 				it = fitResultsInMultibins[multibinBoundaries].insert(fitResultsInMultibins[multibinBoundaries].end(), fitResult());
 				it->fill(*inputFitResult, not stripMatricesFromNotBestResults, not stripMatricesFromNotBestResults);
+				if (clearNames) it->clearNames();
 
 				if(inputFitResult->converged()){
 					if (negLogLikeOfBestConvergedResult.find(multibinBoundaries) == negLogLikeOfBestConvergedResult.end() or // first result of this bin
