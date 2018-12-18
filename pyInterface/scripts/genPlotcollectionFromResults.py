@@ -28,6 +28,7 @@ if __name__ == "__main__":
 	parser.add_argument("--label", type=str, metavar="label", dest="label", default="" ,
 	                    help="Label of the result. If not given, a label is generated automatically.")
 	parser.add_argument("--parallel", action="store_true", help="Build multibins in parallel")
+	parser.add_argument("--clearNames", action="store_true", help="Clear prod.-amp and wave names from further results. (Ugly hack. Should be used with care)")
 
 	args = parser.parse_args()
 
@@ -52,7 +53,8 @@ if __name__ == "__main__":
 			raise Exception("Cannot find '{0}'!".format(path))
 
 	if not args.parallel:
-		plotcollection = pyRootPwa.plotcollection(fitResults, description=args.description, label=args.label if args.label else None)
+		plotcollection = pyRootPwa.plotcollection(fitResults, description=args.description, label=args.label if args.label else None,
+		                                          clearNames=args.clearNames)
 		plotcollection.buildMultibinSummedPlots()
 		statusOk = plotcollection.write(args.output)
 	else:

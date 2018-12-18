@@ -10,7 +10,7 @@ ROOT = pyRootPwa.utils.ROOT
 
 
 class plotcollection(object):
-	def __init__(self, fitResultFilenames = None, description = "", label=None):
+	def __init__(self, fitResultFilenames = None, description = "", label=None, clearNames=False):
 		self._multibinPlots = {}
 		self._multibinSummedPlots = {} # indices: [<summing-variable>][<multibin>],
 		                               # where <multibin> is a multibin in all variables except the summed one
@@ -24,15 +24,19 @@ class plotcollection(object):
 			self._labels.append(label)
 			if fitResultFilenames is not None:
 				self._descriptions[self._labels[0]] = description
-				self._initFromFitresultsFilenames(fitResultFilenames)
+				self._initFromFitresultsFilenames(fitResultFilenames, clearNames=clearNames)
 
 
-	def _initFromFitresultsFilenames(self, fitResultFilenames):
+	def _initFromFitresultsFilenames(self, fitResultFilenames, clearNames=False):
 		'''
 		Initialize plots from fit-result files
 		'''
 		# build bash
-		self._initFromFitresults(pyRootPwa.utils.getFitResultsFromFiles(fitResultFilenames,stripMatricesFromFurtherAttempts=True))
+		self._initFromFitresults(pyRootPwa.core.getFitResultsFromFilesInMultibins(fitResultFilenames,"pwa", "fitResult_v2",
+		                                                                          onlyBestResultInMultibin=False,
+		                                                                          stripMatricesFromFurtherAttempts=True,
+		                                                                          onlyConvergedResults=False,
+		                                                                          quiet=False,clearNames=clearNames))
 
 
 	def _initFromFitresults(self, fitresults):
