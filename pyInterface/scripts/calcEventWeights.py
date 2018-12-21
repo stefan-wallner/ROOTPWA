@@ -117,12 +117,13 @@ if __name__ == "__main__":
 
 		# open amplitude files
 		ampMetas = {}
-		ampFiles = []
+		ampFiles = {}
 		for waveName, ampFileName in eventAndAmpFileDict[dataFilename].iteritems():
 			if not waveName in waveNames: # amplitudes for this wave are not needed
 				continue
-			ampFile = ROOT.TFile.Open(ampFileName, "READ")
-			ampFiles.append(ampFile)
+			if not ampFileName in ampFiles:
+				ampFiles[ampFileName] = ROOT.TFile.Open(ampFileName, "READ")
+			ampFile = ampFiles[ampFileName]
 			if not ampFile:
 				pyRootPwa.utils.printErr("could not open amplitude file '" + ampFileName + "'. Aborting...")
 				sys.exit(1)
@@ -192,7 +193,7 @@ if __name__ == "__main__":
 			outTree.Fill()
 			pbar.update(iEvent)
 
-		for ampFile in ampFiles:
+		for ampFile in ampFiles.values():
 			ampFile.Close()
 		eventFile.Close()
 		outFile.Write()
