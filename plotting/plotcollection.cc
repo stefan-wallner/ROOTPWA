@@ -128,13 +128,14 @@ rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePa
 		intensitySpectrum(waveName); // triggers generation of intensity spectrum
 	}
 	std::set<std::string> allWaveNamePatterns = buildAllTotals(_metadata.waveNames);
-	allWaveNamePatterns.insert(waveNamePatterns.begin(), waveNamePatterns.end());
-	for (const auto& wavenamePattern : allWaveNamePatterns) {
+	std::set<std::string> additionalWaveNamePatterns = { ".*" };
+	additionalWaveNamePatterns.insert(waveNamePatterns.begin(), waveNamePatterns.end());
+	for (const auto& wavenamePattern : additionalWaveNamePatterns) {
 		intensitySpectrumRegEx(wavenamePattern);
 	}
 
 
-	std::vector<std::string> waveNamesOrderedByIntensity = waveNamesSortedByIntensity();
+	const std::vector<std::string> waveNamesOrderedByIntensity = waveNamesSortedByIntensity();
 	// build phase plots
 	for (const auto& waveNameA : _metadata.waveNames) {
 		for(size_t iWaveNameB = 0; iWaveNameB < std::min(nRefWaves,waveNamesOrderedByIntensity.size()); ++iWaveNameB){

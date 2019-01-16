@@ -144,7 +144,7 @@ namespace rpwa {
 		 * @param waveNamePatterns additional wave-name patterns for which generate intensity spectra will be generated
 		 * @param nRefWaves Rel. phases are builded for all waves w.r.t. the nRefWaves largest waves
 		 */
-		void buildDefaultPlots(const std::vector<std::string> waveNamePatterns = {}, const size_t nRefWaves = 4);
+		void buildDefaultPlots(const std::vector<std::string> waveNamePatterns = {}, const size_t nRefWaves = 0);
 
 		void buildAdditionalPlots();
 
