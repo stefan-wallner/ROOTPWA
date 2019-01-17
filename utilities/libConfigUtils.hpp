@@ -69,8 +69,8 @@ namespace rpwa {
 		if (debug)
 			printDebug << "parsing libConfig file '" << libConfigFileName << "'" << std::endl;
 		FILE* fin = fopen(libConfigFileName.c_str(), "r");
-		for(int i=0; i<3 && fin==nullptr; ++i){ // try 4x to open the file
-			std::this_thread::sleep_for(std::chrono::milliseconds(300));
+		for(int i=0; i<4 && fin==nullptr; ++i){ // try 5x to open the file
+			std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 			fin = fopen(libConfigFileName.c_str(), "r");
 		}
 		if (fin == nullptr){
