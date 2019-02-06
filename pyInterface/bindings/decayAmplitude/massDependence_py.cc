@@ -482,6 +482,42 @@ namespace {
 
 	};
 
+	struct KPiSPalanoPenningtonT21Wrapper : public rpwa::KPiSPalanoPenningtonT21,
+	                                bp::wrapper<rpwa::KPiSPalanoPenningtonT21>
+	{
+
+		KPiSPalanoPenningtonT21Wrapper(const double MMax)
+			: rpwa::KPiSPalanoPenningtonT21(MMax),
+			  bp::wrapper<rpwa::KPiSPalanoPenningtonT21>() { }
+
+		KPiSPalanoPenningtonT21Wrapper(const rpwa::KPiSPalanoPenningtonT21& dep)
+			: rpwa::KPiSPalanoPenningtonT21(dep),
+			  bp::wrapper<rpwa::KPiSPalanoPenningtonT21>() { }
+
+		std::complex<double> amp(const rpwa::isobarDecayVertex& v) {
+			if(bp::override amp = this->get_override("amp")) {
+				return amp(v);
+			}
+			return rpwa::KPiSPalanoPenningtonT21::amp(v);
+		}
+
+		std::complex<double> default_amp(const rpwa::isobarDecayVertex& v) {
+			return rpwa::KPiSPalanoPenningtonT21::amp(v);
+		}
+
+		std::string name() const {
+			if(bp::override name = this->get_override("name")) {
+				return name();
+			}
+			return rpwa::KPiSPalanoPenningtonT21::name();
+		}
+
+		std::string default_name() const {
+			return rpwa::KPiSPalanoPenningtonT21::name();
+		}
+
+	};
+
 	struct KPiSMagalhaesElasticWrapper : public rpwa::KPiSMagalhaesElastic,
 	                                bp::wrapper<rpwa::KPiSMagalhaesElastic>
 	{
@@ -631,6 +667,13 @@ void rpwa::py::exportMassDependence() {
 		.def("name", &KPiSPalanoPenningtonWrapper::name, &KPiSPalanoPenningtonWrapper::default_name)
 		.def("name", &rpwa::KPiSPalanoPennington::name);
 
+	bp::class_<KPiSPalanoPenningtonT21Wrapper, bp::bases<rpwa::massDependence> >("KPiSPalanoPenningtonT21", bp::init<const double>())
+		.def(bp::self_ns::str(bp::self))
+		.def("amp", &KPiSPalanoPenningtonT21Wrapper::amp, &KPiSPalanoPenningtonT21Wrapper::default_amp)
+		.def("amp", &rpwa::KPiSPalanoPenningtonT21::amp)
+		.def("name", &KPiSPalanoPenningtonT21Wrapper::name, &KPiSPalanoPenningtonT21Wrapper::default_name)
+		.def("name", &rpwa::KPiSPalanoPenningtonT21::name);
+
 	bp::class_<KPiSMagalhaesElasticWrapper, bp::bases<rpwa::massDependence> >("KPiSMagalhaesElastic", bp::init<const double>())
 		.def(bp::self_ns::str(bp::self))
 		.def("amp", &KPiSMagalhaesElasticWrapper::amp, &KPiSMagalhaesElasticWrapper::default_amp)
@@ -651,6 +694,7 @@ void rpwa::py::exportMassDependence() {
 	bp::register_ptr_to_python<rpwa::rhoPrimeMassDepPtr>();
 	bp::register_ptr_to_python<rpwa::KPiSGLASSPtr>();
 	bp::register_ptr_to_python<rpwa::KPiSPalanoPenningtonPtr>();
+	bp::register_ptr_to_python<rpwa::KPiSPalanoPenningtonT21Ptr>();
 	bp::register_ptr_to_python<rpwa::KPiSMagalhaesElasticPtr>();
 
 }

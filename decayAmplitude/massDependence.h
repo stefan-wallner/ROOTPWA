@@ -468,7 +468,26 @@ namespace rpwa {
 	/// Fixed two bugs in the formulas of the original paper
 	///   - Equation 3: - rho_a detK   ->  - i rho_a detK
 	///   - Equation 4: (s - s_alpha)  ->  (s_alpha - s)
-	class KPiSPalanoPennington: public massDependenceImpl<KPiSPalanoPennington> {
+	class KPiSPalanoPenningtonMatrix {
+
+	public:
+
+		KPiSPalanoPenningtonMatrix(const double MMax);
+		~KPiSPalanoPenningtonMatrix(){ }
+
+		std::complex<double> ampElement(const isobarDecayVertex& v, const bool diagonalElement);
+
+	protected:
+		const double _MMax;       // maximal mass of this amplitude, returns 0 above this mass
+	private:
+		double _piChargedMass;
+		double _kaonChargedMass;
+		double _etaMass;
+	};
+
+	//////////////////////////////////////////////////////////////////////////////
+	/// Brief Kpi -> Kpi element of the K-matrix parameterization for [Kpi]_S wave from Palano, Pennington
+	class KPiSPalanoPennington: public massDependenceImpl<KPiSPalanoPennington>, public KPiSPalanoPenningtonMatrix {
 
 	public:
 
@@ -484,14 +503,29 @@ namespace rpwa {
 
 		static constexpr const char* cName = "KPiSPalanoPennington";
 
-	private:
-		double _MMax;       // maximal mass of this amplitude, returns 0 above this mass
-		double _piChargedMass;
-		double _kaonChargedMass;
-		double _etaMass;
 	};
 	typedef boost::shared_ptr<KPiSPalanoPennington> KPiSPalanoPenningtonPtr;
 
+	//////////////////////////////////////////////////////////////////////////////
+	/// Brief off-diagonal element of the K-matrix parameterization for [Kpi]_S wave from Palano, Pennington
+	class KPiSPalanoPenningtonT21: public massDependenceImpl<KPiSPalanoPenningtonT21>, public KPiSPalanoPenningtonMatrix {
+
+	public:
+
+		KPiSPalanoPenningtonT21(const double MMax);
+		~KPiSPalanoPenningtonT21(){ }
+
+		using massDependenceImpl<KPiSPalanoPenningtonT21>::Create;
+		static boost::shared_ptr<KPiSPalanoPenningtonT21> Create(const libconfig::Setting* settings);
+
+		virtual std::string parentLabelForWaveName(const isobarDecayVertex& v) const;  ///< returns label for parent of decay used in wave name
+
+		virtual std::complex<double> amp(const isobarDecayVertex& v);
+
+		static constexpr const char* cName = "KPiSPalanoPenningtonT21";
+
+	};
+	typedef boost::shared_ptr<KPiSPalanoPenningtonT21> KPiSPalanoPenningtonT21Ptr;
 
 	//////////////////////////////////////////////////////////////////////////////
 	/// Brief

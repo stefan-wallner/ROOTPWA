@@ -220,7 +220,7 @@ class fileManager(object):
 			constructedWaveName = waveDescription.waveNameFromTopology(amplitude.decayTopology())
 			if waveName == constructedWaveName:
 				return waveDescription
-		pyRootPwa.utils.printErr("none of the constructed topologies matched the given wave name.")
+		pyRootPwa.utils.printErr("none of the constructed topologies matched the given wave name '{0}'.".format(waveName))
 		return None
 
 

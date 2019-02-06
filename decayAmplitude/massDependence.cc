@@ -141,6 +141,7 @@ rpwa::createMassDependence(const std::string& massDepType, const libconfig::Sett
 	                              rpwa::rhoPrimeMassDep,
 	                              rpwa::KPiSGLASS,
 	                              rpwa::KPiSPalanoPennington,
+	                              rpwa::KPiSPalanoPenningtonT21,
 	                              rpwa::KPiSMagalhaesElastic>(massDepType, settings);
 }
 
@@ -729,9 +730,8 @@ KPiSGLASS::amp(const isobarDecayVertex& v)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-KPiSPalanoPennington::KPiSPalanoPennington(const double MMax)
+KPiSPalanoPenningtonMatrix::KPiSPalanoPenningtonMatrix(const double MMax)
 :
-		massDependenceImpl<KPiSPalanoPennington>(),
 		_MMax(MMax),
 		_piChargedMass(0.0),
 		_kaonChargedMass(0.0),
@@ -749,30 +749,9 @@ KPiSPalanoPennington::KPiSPalanoPennington(const double MMax)
 	_etaMass = pdt.entry("eta0")->mass();
 }
 
-boost::shared_ptr<KPiSPalanoPennington>
-KPiSPalanoPennington::Create(const libconfig::Setting* massDepKey)
-{
-
-	// if not given, take up to 2.4 GeV
-	double MMax = 2.4;
-	if (massDepKey != nullptr) {
-		massDepKey->lookupValue("MMax", MMax);
-	}
-
-	return KPiSPalanoPennington::Create(MMax);
-}
-
-std::string
-KPiSPalanoPennington::parentLabelForWaveName(const isobarDecayVertex& v) const
-{
-	std::ostringstream label;
-	label << name() << "<MMax_" << _MMax << "GeV>[" << v.parent()->name() << "]";
-	return label.str();
-}
-
 complex<double>
-KPiSPalanoPennington::amp(const isobarDecayVertex& v)
-                          {
+KPiSPalanoPenningtonMatrix::ampElement(const isobarDecayVertex& v, const bool diagonalElement)
+{
 	// parameters from table I in the paper or from the text
 	const complex<double> j(0.0, 1.0);
 	const double sTop = 5.832;               // Fitting range in paper
@@ -812,18 +791,82 @@ KPiSPalanoPennington::amp(const isobarDecayVertex& v)
 		const complex<double> detK = K_11 * K_22 - K_12 * K_12;
 		const complex<double> delta = 1.0 - j * rhoKpi * K_11 - j * rhoKeta * K_22 - rhoKpi * rhoKeta * detK;
 		const complex<double> T_11 = (K_11 - j * rhoKeta * detK) / delta;
+		const complex<double> T_12 = (K_12                     ) / delta;
 
-		amp = T_11;
-
+		if (diagonalElement) amp = T_11;
+		else                 amp = T_12;
 	}
-
-	if (_debug)
-		printDebug << name() << "(m = " << maxPrecision(M) << " GeV/c^2, "
-		           << "GeV/c) = " << maxPrecisionDouble(amp) << endl;
 
 	return amp;
 
 }
+
+KPiSPalanoPennington::KPiSPalanoPennington(const double MMax)
+:
+		massDependenceImpl<KPiSPalanoPennington>(),
+		KPiSPalanoPenningtonMatrix(MMax)
+{}
+
+boost::shared_ptr<KPiSPalanoPennington>
+KPiSPalanoPennington::Create(const libconfig::Setting* massDepKey)
+{
+
+	// if not given, take up to 2.4 GeV
+	double MMax = 2.4;
+	if (massDepKey != nullptr) {
+		massDepKey->lookupValue("MMax", MMax);
+	}
+	return KPiSPalanoPennington::Create(MMax);
+}
+
+std::string
+KPiSPalanoPennington::parentLabelForWaveName(const isobarDecayVertex& v) const
+{
+	std::ostringstream label;
+	label << name() << "<MMax_" << _MMax << "GeV>[" << v.parent()->name() << "]";
+	return label.str();
+}
+
+
+complex<double>
+KPiSPalanoPennington::amp(const isobarDecayVertex& v)
+{
+	return KPiSPalanoPenningtonMatrix::ampElement(v, true);
+}
+
+KPiSPalanoPenningtonT21::KPiSPalanoPenningtonT21(const double MMax)
+:
+		massDependenceImpl<KPiSPalanoPenningtonT21>(),
+		KPiSPalanoPenningtonMatrix(MMax)
+{}
+
+boost::shared_ptr<KPiSPalanoPenningtonT21>
+KPiSPalanoPenningtonT21::Create(const libconfig::Setting* massDepKey)
+{
+
+	// if not given, take up to 2.4 GeV
+	double MMax = 2.4;
+	if (massDepKey != nullptr) {
+		massDepKey->lookupValue("MMax", MMax);
+	}
+	return KPiSPalanoPenningtonT21::Create(MMax);
+}
+
+std::string
+KPiSPalanoPenningtonT21::parentLabelForWaveName(const isobarDecayVertex& v) const
+{
+	std::ostringstream label;
+	label << name() << "<MMax_" << _MMax << "GeV>[" << v.parent()->name() << "]";
+	return label.str();
+}
+
+
+complex<double>
+KPiSPalanoPenningtonT21::amp(const isobarDecayVertex& v)
+{
+	return KPiSPalanoPenningtonMatrix::ampElement(v, false);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 KPiSMagalhaesElastic::KPiSMagalhaesElastic(const double MMax)
