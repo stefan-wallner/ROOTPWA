@@ -97,12 +97,12 @@ rpwa::multibinPlots::multibinPlots(std::vector<rpwa::fitResult>&& fitresults, co
 			throw std::invalid_argument("No converged solution found");
 		}
 		if (not results[0].hasHessian() or not results[0].covMatrixValid()) {
-			printErr << "No solution with valid hessian matrix found in massbin: " << results[0].massBinCenter() << std::endl;
-			throw std::invalid_argument("Best solution without valid covariance matrix");
+			printWarn << "No solution with valid hessian matrix found in massbin: " << results[0].massBinCenter();
+			printWarn << " --> Using best result without valid hessian!" << std::endl;
 		}
 		if (results[0].normIntegralMatrix().nRows()==0) {
-			printErr << "Best solution without integral matrix in massbin: " << results[0].massBinCenter() << std::endl;
-			throw std::invalid_argument("Best solution without integral matrix");
+			printWarn << "Best solution without integral matrix in massbin: " << results[0].massBinCenter();
+			printWarn << " --> Using best result without integral matrix!" << std::endl;
 		}
 		const double minLikelihood = std::min_element(results.begin(), results.end(),
 				[](const fitResult& a, const fitResult& b)->bool {return a.logLikelihood() < b.logLikelihood();})->logLikelihood();
