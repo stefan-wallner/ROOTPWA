@@ -34,7 +34,6 @@
 #include "massDependence.h"
 
 #include <type_traits>
-#include <regex>
 
 #include <boost/numeric/ublas/io.hpp>
 
@@ -679,10 +678,12 @@ KPiSGLASS::Create(const libconfig::Setting* massDepKey)
 		lookupParameter(Name(), massDepKey, "MMax", MMax);
 		lookupParameter(Name(), massDepKey, "tag", tag);
 
-		std::string forbiddenChars("[\\>\\<\\]\\[\\=]");
-		if (std::regex_search(tag, std::regex(forbiddenChars))){
-			printErr<< "The following characters are forbidden in tags: '" << forbiddenChars << "'. Aborting..." << endl;
-			throw;
+		std::vector<char> forbiddenChars = { '>', '<', ']', '[', '=' };
+		for (const auto& forbiddenChar : forbiddenChars) {
+			if (tag.find(forbiddenChar) != std::string::npos) {
+				printErr<< "The following character is forbidden in tags: '" << forbiddenChar << "'. Aborting..." << endl;
+				throw;
+			}
 		}
 
 		return KPiSGLASS::Create(a, r, M0, G0, phiF, phiR, phiRsin, F, R, MMax, tag);
