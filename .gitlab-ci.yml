@@ -11,6 +11,9 @@ before_script:
   - export OMP_NUM_THREADS=6
   - export BOOST_ROOT="/usr/local/boost"
   - export LD_LIBRARY_PATH="/usr/local/boost/lib:${LD_LIBRARY_PATH}"
+  - export YAML_ROOT="/usr/local/yaml-cpp"
+  - export YAML_CPP="/usr/local/yaml-cpp"
+  - export LD_LIBRARY_PATH="/usr/local/yaml-cpp/lib:${LD_LIBRARY_PATH}"
 
 
 build:
