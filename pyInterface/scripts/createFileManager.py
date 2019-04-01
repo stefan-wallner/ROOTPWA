@@ -14,6 +14,7 @@ if __name__ == "__main__":
 	                                )
 
 	parser.add_argument("-c", type=str, metavar="configFileName", default="rootpwa.config", dest="configFileName", help="path to config file (default: ./rootpwa.config)")
+	parser.add_argument("--scanAmplitudeFiles", action="store_true", help="Scan all files in the amplitude directory for their content")
 	args = parser.parse_args()
 
 	config = pyRootPwa.rootPwaConfig()
@@ -22,7 +23,7 @@ if __name__ == "__main__":
 		sys.exit(1)
 	pyRootPwa.core.particleDataTable.readFile(config.pdgFileName)
 	fileManager = pyRootPwa.fileManager()
-	if not fileManager.initialize(config):
+	if not fileManager.initialize(config, args.scanAmplitudeFiles):
 		pyRootPwa.utils.printErr("loading the file manager failed. Aborting...")
 		sys.exit(1)
 	if not pyRootPwa.saveFileManager(fileManager, config.fileManagerPath):

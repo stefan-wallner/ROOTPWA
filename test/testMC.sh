@@ -195,6 +195,14 @@ testStep "pwaFit with prior" \
 -P 0.5 \
 -s ${SEED_FIT}"
 
+
+# backup old file manager ...
+printInfo "Move first file manager (backup) ..."
+mv ./fileManager.pkl ./fileManager.pkl.oldII
+
+# ... recreate a file manager
+testStep "recreation of a file manager scanning amplitude files" "${ROOTPWA}/build/bin/createFileManager --scanAmplitudeFiles"
+
 if which pwaNloptFit
 then
 	testStep "pwaNloptFit without prior" \

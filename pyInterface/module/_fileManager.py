@@ -3,6 +3,7 @@ import glob
 import os
 import itertools
 import cPickle as pickle
+import multiprocessing
 
 import pyRootPwa.utils
 ROOT = pyRootPwa.utils.ROOT
@@ -125,7 +126,7 @@ class fileManager(object):
 			return object.__setattr__(self, fileManager._deprecatedMembers[name], *args, **kwargs)
 		return object.__setattr__(self, name, *args, **kwargs)
 
-	def initialize(self, configObject):
+	def initialize(self, configObject, scanAmplitudeFiles = False):
 		self.eventDirectory      = configObject.eventDirectory
 		self.keyDirectory       = configObject.keyDirectory
 		self.amplitudeDirectory = configObject.ampDirectory
@@ -182,11 +183,17 @@ class fileManager(object):
 			pyRootPwa.utils.printErr("error loading keyfiles.")
 			return False
 
-		amplitudeFiles = self._getAmplitudeFilePaths(self.eventFiles.keys(), self.getWaveNameList())
-		# check if amplitude directory is empty
-		if not os.listdir(self.amplitudeDirectory) == []:
-			pyRootPwa.utils.printWarn("directory '" + self.amplitudeDirectory + "' is not empty.")
-		pyRootPwa.utils.printInfo("number of amplitude files: " + str(len(amplitudeFiles)))
+		# make sure directories exist (create if necessary) and check if they are empty
+		if not os.path.exists(self.amplitudeDirectory):
+			os.makedirs(self.amplitudeDirectory)
+		if scanAmplitudeFiles:
+			pyRootPwa.utils.printInfo("scan amplitude files")
+			self._openAmplitudeFiles()
+		else:
+			amplitudeFiles = self._getAmplitudeFilePaths(self.eventFiles.keys(), self.getWaveNameList())
+			pyRootPwa.utils.printInfo("number of amplitude files: " + str(len(amplitudeFiles)))
+			if not os.listdir(self.amplitudeDirectory) == []:
+				pyRootPwa.utils.printWarn("directory '" + self.amplitudeDirectory + "' is not empty.")
 		self.integralFiles = self._getIntegralFilePaths()
 		pyRootPwa.utils.printInfo("number of integral files: " + str(len(self.integralFiles)))
 		return True
@@ -391,7 +398,7 @@ class fileManager(object):
 			for eventFileId in outputEventFileIds:
 				for waveName_i, waveName in waves:
 					key = (eventsType, eventFileId, waveName_i)
-					if key not in self._specialAmplitudeFiles:
+					if (eventsType, eventFileId, waveName) not in self._specialAmplitudeFiles:
 						if waveName not in wavesWithMergedAmplitudes:
 							amplitudeFileName = "{waveName}_eventFileId-{eventsId}_{eventsType}.root".format(waveName=waveName,
 							                                                                                 eventsId=str(eventFileId),
@@ -406,7 +413,7 @@ class fileManager(object):
 							                                                                            eventsType=str(eventsType))
 						amplitudeFilePath = os.path.join(self.amplitudeDirectory, amplitudeFileName)
 					else:
-						amplitudeFilePath = self._specialAmplitudeFiles[key]
+						amplitudeFilePath = self._specialAmplitudeFiles[(eventsType, eventFileId, waveName)]
 					amplitudeFiles[key] = amplitudeFilePath
 
 		return amplitudeFiles
@@ -447,6 +454,94 @@ class fileManager(object):
 		for eventsType in sorted(eventFiles):
 			retval[eventsType] = eventFiles[eventsType]
 		return eventFiles
+
+
+	def _openAmplitudeFiles(self):
+		eventFileMetas = collections.defaultdict(list)
+		for eventsType, eventFiles in self.eventFiles.iteritems():
+			for eventFile in eventFiles:
+				eventFileObj = ROOT.TFile.Open(eventFile.dataFileName, "READ")
+				meta = pyRootPwa.core.eventMetadata.readEventFile(eventFileObj)
+				eventFileMetas[eventsType].append(meta)
+				eventFileObj.Close()
+#pylint: disable=W0603
+		global _grunAmplitudeFileScanGlobalVars
+#pylint: enable=W0603
+		_grunAmplitudeFileScanGlobalVars = eventFileMetas
+
+		waveNames = self.getWaveNameList()
+		foundAmplitudes = {} # {(eventsType, eventfile-id, wavename-id): <amplitude-filepath>}
+
+		amplitudeFileNames = sorted(glob.glob(os.path.join(self.amplitudeDirectory, "*.root")))
+		pool = multiprocessing.Pool(min(multiprocessing.cpu_count(), 10))
+		args = [(n, waveNames) for n in amplitudeFileNames]
+		retVals = pool.map(_runAmplitudeFileScan, args)
+		for retVal in retVals:
+			for key,value in retVal:
+				foundAmplitudes[key] = value
+
+		amplitudesToBeCalculated = 0
+		defaultAmplitudeFilenames = self._getAmplitudeFilePaths(self.eventFiles.keys(), waveNames)
+		pyRootPwa.utils.printInfo("analyzing found amplitude files")
+		pbar = pyRootPwa.utils.progressBar(maximum = len(defaultAmplitudeFilenames)-1)
+		pbar.start()
+		pbarCounter = 0
+		for eventsType in self.eventFiles.keys():
+			allMergedWaves = set()
+			for waveName_i, waveName in enumerate(waveNames):
+				pbarCounter += len(self.eventFiles[eventsType])
+				pbar.update(pbarCounter)
+				# check if wave was already added to merged waves
+				if waveName in allMergedWaves:
+					continue
+				# check if wave was merged with other waves
+				key = (eventsType, 0, waveName_i)
+				if key in foundAmplitudes:
+					amplitudeFileName = foundAmplitudes[key]
+					otherWavesInAmplFile = [otherKey for otherKey, filename in foundAmplitudes.iteritems() if filename == amplitudeFileName and otherKey[0] == key[0] and otherKey[1] == key[1]]
+					if otherWavesInAmplFile:
+						mergedWavesIndices = [waveName_i] + [otherKey[2] for otherKey in otherWavesInAmplFile]
+						# check if this works for all other event-file ids
+						areMerged = True
+						tag = None
+						for eventFileID in range(len(self.eventFiles[eventsType])):
+							keys = [(eventsType, eventFileID, i) for i in mergedWavesIndices]
+							if False in [ key in foundAmplitudes and foundAmplitudes[keys[0]] == foundAmplitudes[key] for key in keys  ]:
+								areMerged = False
+								break
+							# check that file-name matches the pattern, get tag and theck that it is the same for all event files
+							amplitudeFileNameEnding = "_eventFileId-{eventsId}_{eventsType}.root".format(eventsId=str(eventFileID), eventsType=str(eventsType))
+							amplitudeFileNameOfEventFile = foundAmplitudes[(eventsType, eventFileID, waveName_i)]
+							if not amplitudeFileNameOfEventFile.endswith(amplitudeFileNameEnding):
+								areMerged = False
+								break
+							elif tag is None:
+								tag = os.path.basename(amplitudeFileNameOfEventFile).replace(amplitudeFileNameEnding, "")
+							else:
+								if tag != os.path.basename(amplitudeFileNameOfEventFile).replace(amplitudeFileNameEnding, ""):
+									areMerged = False
+									break
+						if areMerged:
+							self._mergedAmplitudes[eventsType][tag] = [waveNames[i] for i in mergedWavesIndices]
+							allMergedWaves.update(set(self._mergedAmplitudes[eventsType][tag]))
+							continue # continue with next wave
+
+				# if not merge, check whether this amplitude was found elsewhere for each eventFileID individually
+				for eventFileID in range(len(self.eventFiles[eventsType])):
+					key = (eventsType, eventFileID, waveName_i)
+					if key in foundAmplitudes:
+						amplitudeFileName = foundAmplitudes[key]
+						if amplitudeFileName == defaultAmplitudeFilenames[key]:
+							continue # it is the default naming scheme, continue with next eventFileID
+						# else, this is a special naming scheme
+						self._specialAmplitudeFiles[(key[0], key[1], waveName)] = amplitudeFileName
+						continue
+					else:
+						amplitudesToBeCalculated += 1
+		pyRootPwa.utils.printInfo("number of amplitudes:                  " + str(len(defaultAmplitudeFilenames)))
+		pyRootPwa.utils.printInfo("number of found amplitudes:            " + str(len(defaultAmplitudeFilenames) - amplitudesToBeCalculated))
+		pyRootPwa.utils.printInfo("number of amplitudes to be calculated: " + str(amplitudesToBeCalculated))
+
 
 
 	def _openKeyFiles(self):
@@ -529,3 +624,30 @@ class fileManager(object):
 		elif eventsType == pyRootPwa.core.eventMetadata.ACCEPTED:
 			return EventsType.ACCEPTED
 		return -1
+
+_grunAmplitudeFileScanGlobalVars = None # variable to parallelize readAmplitudeFile
+def _runAmplitudeFileScan(args):
+	amplitudeFileName, waveNames = args
+	eventFileMetas = _grunAmplitudeFileScanGlobalVars
+	amplitudeFile = ROOT.TFile.Open(amplitudeFileName, "READ")
+	eventFileID = 0
+	ret = []
+	for waveName_i, waveName  in enumerate(waveNames):
+		amplitudeMeta = pyRootPwa.core.amplitudeMetadata.readAmplitudeFile(amplitudeFile, waveName, True)
+		if amplitudeMeta: # wave found in this file
+			eventsMetas = amplitudeMeta.eventMetadata()
+			if len(eventsMetas) != 1:
+				raise pyRootPwa.utils.exception("Cannot handle amplitude metadata with more than one event metadata")
+			eventsMeta = eventsMetas[0]
+			eventsType = fileManager.pyEventsType(eventsMeta.eventsType())
+			if eventFileMetas[eventsType][eventFileID] != eventsMeta:
+				eventFileID = None
+				for eventFileMeta_i, eventFileMeta in enumerate(eventFileMetas[eventsType]):
+					if eventFileMeta == eventsMeta:
+						eventFileID = eventFileMeta_i
+						break
+			if eventFileID is None:
+				raise pyRootPwa.utils.exception("Cannot find corresponding event metadata for amplitude metadata")
+			ret.append(( (eventsType, eventFileID, waveName_i), amplitudeFileName))
+	amplitudeFile.Close()
+	return ret
