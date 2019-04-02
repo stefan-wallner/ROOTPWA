@@ -48,11 +48,11 @@ def calcAmplitude(inputFileName,
 		outputFile.Close()
 		return False
 	amplitudes = pyRootPwa.core.calcAmplitude(eventMeta, amplitude, -1, printProgress)
-	if not amplitudes:
+	nEvents = eventMeta.eventTree().GetEntries()
+	if not amplitudes and nEvents > 0:
 		printWarn("could not calculate amplitudes.")
 		outputFile.Close()
 		return False
-	nEvents = eventMeta.eventTree().GetEntries()
 	if nEvents != len(amplitudes):
 		printWarn("number of events (" + str(nEvents) +
 		          ") does not match with number of amplitudes (" + str(len(amplitudes)) + ").")
