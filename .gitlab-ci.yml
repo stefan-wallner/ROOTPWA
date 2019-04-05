@@ -36,7 +36,7 @@ test-code:
     - export PYTHONPATH="${ROOTPWA}/build/pyLib:${PYTHONPATH}"
     - export PATH="${ROOTPWA}/build/bin:${PATH}" 
     - cd build
-    - make test
+    - CTEST_OUTPUT_ON_FAILURE=1 make test
     - cd ..
   artifacts:
     when: always
