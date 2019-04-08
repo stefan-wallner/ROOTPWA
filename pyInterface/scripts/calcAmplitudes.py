@@ -5,6 +5,8 @@ import sys
 
 import pyRootPwa
 import pyRootPwa.core
+import pyRootPwa.utils
+ROOT = pyRootPwa.utils.ROOT
 
 
 if __name__ == "__main__":
@@ -21,9 +23,11 @@ if __name__ == "__main__":
 	parser.add_argument("-b", type=int, metavar="eventFileId", default=-1, dest="eventFileId", help="event file id to be calculated (default: all)")
 	parser.add_argument("-e", type=str, metavar="eventsType", default="all", dest="eventsType", help="events type to be calculated ('real', 'generated' or 'accepted', default: all)")
 	parser.add_argument("-f", "--no-progress-bar", action="store_true", dest="noProgressBar", help="disable progress bars (decreases computing time)")
-	parser.add_argument("-k", "--keyfileIndex", type=int, metavar="#", default=-1,
+	parser.add_argument("-k", "--keyfileIndex", action='append', metavar="#",
 	                    help="keyfile index to calculate amplitude for (overrides settings from the config file, index from 0 to number of keyfiles - 1)")
 	parser.add_argument("-w", type=str, metavar="wavelistFileName", default="", dest="wavelistFileName", help="path to wavelist file (default: none)")
+	parser.add_argument("--output", type=str, metavar="outputFileName", default="", dest="outputFileName",
+	                    help="path to output file for all calculated amplitudes (default: from file manager)")
 	args = parser.parse_args()
 
 	config = pyRootPwa.rootPwaConfig()
@@ -46,13 +50,14 @@ if __name__ == "__main__":
 	waveList = []
 	if not args.wavelistFileName == "":
 		waveList = [ i[0] for i in pyRootPwa.utils.getWaveDescThresFromWaveList(args.wavelistFileName, fileManager.getWaveDescriptions()) ]
-	if not args.keyfileIndex == -1:
+	if args.keyfileIndex:
 		allWaveNames = fileManager.getWaveNameList()
-		if not args.keyfileIndex < len(allWaveNames):
-			pyRootPwa.utils.printErr("keyfileIndex from command line argument out of range. Maximum value is " + str(len(allWaveNames)-1) + ". Aborting...")
-			sys.exit(1)
-		waveList = [allWaveNames[args.keyfileIndex]]
-		pyRootPwa.utils.printInfo("using keyfile index " + str(args.keyfileIndex) + " resulting in the wave name '" + waveList[0] + "'.")
+		for keyfileIndex in args.keyfileIndex:
+			if not keyfileIndex < len(allWaveNames):
+				pyRootPwa.utils.printErr("keyfileIndex from command line argument out of range. Maximum value is " + str(len(allWaveNames)-1) + ". Aborting...")
+				sys.exit(1)
+			pyRootPwa.utils.printInfo("using keyfile index " + str(keyfileIndex) + " resulting in the wave name '" + allWaveNames[keyfileIndex] + "'.")
+		waveList = [allWaveNames[keyfileIndex] for keyfileIndex in args.keyfileIndex]
 	if not waveList:
 		waveList = fileManager.getWaveNameList()
 
@@ -71,6 +76,10 @@ if __name__ == "__main__":
 		pyRootPwa.utils.printErr("Invalid events type given ('" + args.eventsType + "'). Aborting...")
 		sys.exit(1)
 
+	outputFile = None
+	if args.outputFileName:
+		outputFile = ROOT.TFile.Open(args.outputFileName, "NEW")
+
 	for waveName in waveList:
 		for eventsType in eventsTypes:
 			eventAmpFilePairs = fileManager.getEventAndAmplitudePairPathsForWave(eventsType, waveName)
@@ -80,6 +89,9 @@ if __name__ == "__main__":
 					sys.exit(1)
 				eventAmpFilePairs = eventAmpFilePairs[args.eventFileId:args.eventFileId+1]
 			for eventFilePath, amplitudeFilePath in eventAmpFilePairs:
+				if outputFile is not None:
+					amplitudeFilePath = outputFile
 				if not pyRootPwa.calcAmplitude(eventFilePath, waveName, fileManager.getWaveDescription(waveName),
 				                               amplitudeFilePath, not args.noProgressBar):
 					pyRootPwa.utils.printWarn("could not calculate amplitude.")
+					raise Exception()
