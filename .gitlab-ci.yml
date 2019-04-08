@@ -25,10 +25,6 @@ build:
     - cd ..
 
 
-cache:
-  paths:
-    - "build"
-
 test-code:
   stage: test
   script: 
