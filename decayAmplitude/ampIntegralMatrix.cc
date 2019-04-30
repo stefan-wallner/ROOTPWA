@@ -705,6 +705,8 @@ ampIntegralMatrix::readMultiArray()
 	complex<double>* integralData = _integrals.data();
 	for (unsigned int i = 0; i < _intStorageNmbElements; ++i)
 		integralData[i] = _intStorageData[i];
+	delete _intStorageData;
+	_intStorageData = nullptr;
 }
 
 
