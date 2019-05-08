@@ -188,6 +188,51 @@ namespace rpwa {
 
 
 	//////////////////////////////////////////////////////////////////////////////
+	/// Brief Use the mass dependence from a table stored in a file
+	/// The file must have YAML format.
+	/// The file contains a list of data points (unordered).
+	/// Each data point must have :
+	///   - a 'mass' tag, representing the mass value at which the amplitude was evaluated
+	///   - a 'ampRe' tag, representing the real part of the amplitude
+	///   - a 'ampIm' tag, representing the imaginary part of the amplitude
+	class lookupTable: public massDependenceImpl<lookupTable> {
+
+	public:
+		lookupTable(const std::string& fielPath, const std::string& tag, const bool interpolate = true);
+		~lookupTable() {
+		}
+
+		using massDependenceImpl<lookupTable>::Create;
+		static boost::shared_ptr<lookupTable> Create(const libconfig::Setting* settings);
+
+		virtual std::string parentLabelForWaveName(const isobarDecayVertex& v) const;  ///< returns label for parent of decay used in wave name
+
+		virtual std::complex<double> amp(const isobarDecayVertex& v);
+
+		static constexpr const char* cName = "lookupTable";
+
+	private:
+		bool          _dataLoaded; // data was loaded from file
+		const bool    _interpolate;
+		const std::string   _filePath;
+		const std::string   _tag;
+		std::vector<double> _mass;  // mass value
+		std::vector<double> _ampRe; // real part of amplitude
+		std::vector<double> _ampIm; // imaginary part of amplitude
+
+		void loadData();
+		void sortPoints();
+		void checkRange(const double mass) const;
+		std::size_t nearestPoint(const double mass) const;
+		/// Returns the index of the first point that is strictly above mass, i.e. _mass[i] > mass
+		std::size_t firstPointAbove(const double mass) const;
+	};
+
+
+	typedef boost::shared_ptr<lookupTable> lookupTablePtr;
+
+
+	//////////////////////////////////////////////////////////////////////////////
 	/// Brief relativistic Breit-Wigner with mass-dependent width and Blatt-Weisskopf barrier factors
 	class relativisticBreitWigner : public massDependenceImpl<relativisticBreitWigner> {
 

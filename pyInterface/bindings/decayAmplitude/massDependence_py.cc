@@ -113,6 +113,41 @@ namespace {
 
 	};
 
+	struct lookupTableWrapper : public rpwa::lookupTable,
+	                                bp::wrapper<rpwa::lookupTable>
+	{
+		lookupTableWrapper(const std::string& filePath, const std::string& tag, const bool interpolate)
+			: rpwa::lookupTable(filePath, tag, interpolate),
+			  bp::wrapper<rpwa::lookupTable>() { }
+
+		lookupTableWrapper(const rpwa::lookupTable& dep)
+			: rpwa::lookupTable(dep),
+			  bp::wrapper<rpwa::lookupTable>() { }
+
+		std::complex<double> amp(const rpwa::isobarDecayVertex& v) {
+			if(bp::override amp = this->get_override("amp")) {
+				return amp(v);
+			}
+			return rpwa::lookupTable::amp(v);
+		}
+
+		std::complex<double> default_amp(const rpwa::isobarDecayVertex& v) {
+			return rpwa::lookupTable::amp(v);
+		}
+
+		std::string name() const {
+			if(bp::override name = this->get_override("name")) {
+				return name();
+			}
+			return rpwa::lookupTable::name();
+		}
+
+		std::string default_name() const {
+			return rpwa::lookupTable::name();
+		}
+
+	};
+
 
 	struct relativisticBreitWignerWrapper : public rpwa::relativisticBreitWigner,
 	                                               bp::wrapper<rpwa::relativisticBreitWigner>
@@ -586,6 +621,13 @@ void rpwa::py::exportMassDependence() {
 		.def("name", &binnedMassDependenceWrapper::name, &binnedMassDependenceWrapper::default_name)
 		.def("name", &rpwa::binnedMassDependence::name);
 
+	bp::class_<lookupTableWrapper, bp::bases<rpwa::massDependence> >("lookupTable", bp::init<const std::string&, const std::string&, const bool>())
+		.def(bp::self_ns::str(bp::self))
+		.def("amp", &lookupTableWrapper::amp, &lookupTableWrapper::default_amp)
+		.def("amp", &rpwa::lookupTable::amp)
+		.def("name", &lookupTableWrapper::name, &lookupTableWrapper::default_name)
+		.def("name", &rpwa::lookupTable::name);
+
 	bp::class_<relativisticBreitWignerWrapper, bp::bases<rpwa::massDependence> >("relativisticBreitWigner")
 		.def(bp::self_ns::str(bp::self))
 		.def("amp", &relativisticBreitWignerWrapper::amp, &relativisticBreitWignerWrapper::default_amp)
@@ -684,6 +726,7 @@ void rpwa::py::exportMassDependence() {
 	bp::register_ptr_to_python<rpwa::massDependencePtr>();
 	bp::register_ptr_to_python<rpwa::flatMassDependencePtr>();
 	bp::register_ptr_to_python<rpwa::binnedMassDependencePtr>();
+	bp::register_ptr_to_python<rpwa::lookupTablePtr>();
 	bp::register_ptr_to_python<rpwa::relativisticBreitWignerPtr>();
 	bp::register_ptr_to_python<rpwa::constWidthBreitWignerPtr>();
 	bp::register_ptr_to_python<rpwa::rhoBreitWignerPtr>();

@@ -33,11 +33,17 @@
 
 #include "massDependence.h"
 
+#include <algorithm>
+#include <cstdlib>
+#include <numeric>
+#include <stdexcept>
 #include <type_traits>
 
 #include <boost/numeric/ublas/io.hpp>
+#include <boost/filesystem.hpp>
 
 #include "libConfigUtils.hpp"
+#include "yamlCppUtils.hpp"
 #include "isobarDecayVertex.h"
 #include "particleDataTable.h"
 #include "phaseSpaceIntegral.h"
@@ -104,6 +110,13 @@ namespace {
 			throw;
 		}
 	}
+
+	template<typename T>
+	static std::vector<T> applyPermutation(const std::vector<T>& inputVector, const std::vector<size_t>& permutation){
+		std::vector<T> newVector(inputVector.size());
+		std::transform(permutation.begin(), permutation.end(), newVector.begin(), [&](size_t i) {return inputVector[i];});
+		return newVector;
+	}
 }
 
 
@@ -129,6 +142,7 @@ rpwa::createMassDependence(const std::string& massDepType, const libconfig::Sett
 	// otherwise try to resolve the name
 	return ::createMassDependence<rpwa::flatMassDependence,
 	                              rpwa::binnedMassDependence,
+	                              rpwa::lookupTable,
 	                              rpwa::relativisticBreitWigner,
 	                              rpwa::constWidthBreitWigner,
 	                              rpwa::rhoBreitWigner,
@@ -247,6 +261,195 @@ binnedMassDependence::parentLabelForWaveName(const isobarDecayVertex& v) const
 	      << spinQn(parent->J()) << parityQn(parent->P()) << parityQn(parent->C()) << ","
 	      << getMassMin() << "," << getMassMax() << "]";
 	return label.str();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+lookupTable::lookupTable(const std::string& filePath, const std::string& tag, const bool interpolate)
+:
+		massDependenceImpl<lookupTable>(),
+		_dataLoaded(false),
+		_interpolate(interpolate),
+		_filePath(filePath),
+		_tag(tag)
+{
+}
+
+boost::shared_ptr<lookupTable>
+lookupTable::Create(const libconfig::Setting* massDepKey)
+{
+	if (massDepKey != nullptr) {
+		string filePath, tag;
+		bool interpolate;
+
+		lookupParameter(Name(), massDepKey, "tag", tag);
+		std::vector<char> forbiddenChars = { '>', '<', ']', '[', '=' };
+		for (const auto& forbiddenChar : forbiddenChars) {
+			if (tag.find(forbiddenChar) != std::string::npos) {
+				printErr<< "The following character is forbidden in tags: '" << forbiddenChar << "'. Aborting..." << endl;
+				throw;
+			}
+		}
+
+		lookupParameter(Name(), massDepKey, "filePath", filePath);
+		boost::filesystem::path filePathObj(filePath);
+		if(filePathObj.is_relative()) {
+			const char* lookUpTablesDir = getenv("ROOTPWA_LOOKUPTABLES");
+			if(lookUpTablesDir == NULL) {
+				printErr << "Cannot set relative filePath for mass dependence '" << Name() << "' without 'ROOTPWA_LOOKUPTABLES' environment variable set." << endl;
+				throw std::exception();
+			}
+			boost::filesystem::path lookUpTablesDirObj(lookUpTablesDir);
+			filePath = ( lookUpTablesDirObj / filePathObj).string();
+		}
+
+		if (not massDepKey->lookupValue("interpolate", interpolate)){
+			interpolate = true;
+		}
+
+		return lookupTable::Create(filePath, tag, interpolate);
+	} else {
+		printWarn<< "no configuration given for mass dependence '" << Name() << "'" << endl;
+		throw std::exception();
+	}
+}
+
+
+void
+lookupTable::loadData()
+{
+	_mass.clear();
+	_ampRe.clear();
+	_ampIm.clear();
+
+	if (not boost::filesystem::exists(_filePath)) {
+		printErr << "Cannot find filePath '" << _filePath << "' for mass dependence '" << Name() << "'." << endl;
+		throw std::exception();
+	}
+
+	YAML::Node root;
+	if (rpwa::YamlCppUtils::parseYamlFile(_filePath, root, false)) {
+		for (YAML::const_iterator it = root.begin(); it != root.end(); ++it) {
+			const YAML::Node& dataPointNode = *it;
+
+			if (YAML::Node massNode = dataPointNode["mass"]) {
+				_mass.push_back(massNode.as<double>());
+			} else {
+				printErr<< "Cannot find 'mass' key in input file '" << _filePath << "'.";
+				throw std::exception();
+			}
+			if (YAML::Node ampReNode = dataPointNode["ampRe"]) {
+				_ampRe.push_back(ampReNode.as<double>());
+			} else {
+				printErr<< "Cannot find 'ampRe' key in input file '" << _filePath << "'.";
+				throw std::exception();
+			}
+			if (YAML::Node ampImNode = dataPointNode["ampIm"]) {
+				_ampIm.push_back(ampImNode.as<double>());
+			} else {
+				printErr<< "Cannot find 'ampIm' key in input file '" << _filePath << "'.";
+				throw std::exception();
+			}
+		}
+		sortPoints();
+	} else {
+		printErr << "Cannot initialize mass dependence '" << Name() << "'." << endl;
+		throw std::exception();
+	}
+	_dataLoaded = true;
+}
+
+
+std::string
+lookupTable::parentLabelForWaveName(const isobarDecayVertex& v) const
+{
+	std::ostringstream label;
+	label << name() << "<" << _tag << ">[" << v.parent()->name() << "]";
+	return label.str();
+}
+
+
+complex<double>
+lookupTable::amp(const isobarDecayVertex& v)
+{
+	if(not _dataLoaded) loadData();
+
+	// get mass
+	const double M = v.parent()->lzVec().M();                 // parent mass
+
+	complex<double> amp = 0.0;
+
+
+	checkRange(M);
+	if (not _interpolate) {
+		const size_t iNearestPoint = nearestPoint(M);
+		amp = std::complex<double>(_ampRe[iNearestPoint], _ampIm[iNearestPoint]);
+	} else if (M == _mass.back()){
+		amp = std::complex<double>(_ampRe.back(), _ampIm.back());
+	} else {
+		const size_t iFirstAbove = firstPointAbove(M);
+		// after checkRange, iFirstAbove > 0 as  _mass[0] <= M
+		const complex<double> ampAbove = complex<double>(_ampRe[iFirstAbove], _ampIm[iFirstAbove]);
+		const complex<double> ampBelow = complex<double>(_ampRe[iFirstAbove - 1], _ampIm[iFirstAbove - 1]);
+		const double weight = (_mass[iFirstAbove] - M) / (_mass[iFirstAbove] - _mass[iFirstAbove - 1]);
+		amp = weight * ampBelow + (1.0 - weight) * ampAbove;
+	}
+
+	return amp;
+
+}
+
+
+void lookupTable::sortPoints()
+{
+	// first build sort index permutation
+	std::vector<size_t> p(_mass.size());
+	std::iota(p.begin(), p.end(), 0);
+	std::sort(p.begin(), p.end(), [&](size_t i, size_t j) {return _mass[i] < _mass[j];});
+
+	// apply permutation to points
+	_mass  = applyPermutation(_mass,  p);
+	_ampRe = applyPermutation(_ampRe, p);
+	_ampIm = applyPermutation(_ampIm, p);
+}
+
+
+void
+lookupTable::checkRange(const double mass) const
+{
+	if (mass < _mass[0]){
+		printErr << "Mass '" << mass << "' out of range for parameterization '" << Name() << "' with tag '" << _tag << "'." << endl;
+		throw std::out_of_range("");
+	}
+	if (mass > _mass.back()){
+		printErr << "Mass '" << mass << "' out of range for parameterization '" << Name() << "' with tag '" << _tag << "'." << endl;
+		throw std::out_of_range("");
+	}
+}
+
+
+size_t
+lookupTable::nearestPoint(const double mass) const
+{
+	std::vector<double>::const_iterator it = std::lower_bound(_mass.begin(), _mass.end(), mass);
+	if(it == _mass.end()){
+		it = _mass.end()-1;
+	}
+	if(it != _mass.begin() and std::abs(mass - *it) > std::abs(mass - *(it-1))){ // if the next smaller point is closer
+		it = it - 1;
+	}
+	return std::distance(_mass.begin(), it);
+}
+
+
+size_t
+lookupTable::firstPointAbove(const double mass) const {
+	std::vector<double>::const_iterator it = std::upper_bound(_mass.begin(), _mass.end(), mass);
+	if(it == _mass.end()){
+		printErr << "Mass '" << mass << "' out of range for parameterization '" << Name() << "' with tag '" << _tag << "'." << endl;
+		throw std::out_of_range("");
+	}
+	return std::distance(_mass.begin(), it);
 }
 
 
