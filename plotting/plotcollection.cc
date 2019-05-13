@@ -120,6 +120,36 @@ rpwa::multibinPlots::multibinPlots(std::vector<rpwa::fitResult>&& fitresults, co
 
 }
 
+rpwa::multibinPlots::multibinPlots(const rpwa::multibinPlots& other) :
+		_initialized(other._initialized),
+		_fitResultsInMassbins(other._fitResultsInMassbins),
+		_metadata(other._metadata),
+		_negLogLikeSpectrum(other._negLogLikeSpectrum->copy())
+{
+	for(const auto& e: other._intensities){
+		_intensities[e.first] = e.second->copy();
+	}
+	for(const auto& eij: other._phases){
+		for(const auto& e: eij.second){
+			_phases[eij.first][e.first] = e.second->copy();
+		}
+	}
+	for(const auto& e: other._additionalPlots){
+		_additionalPlots[e.first] = e.second->copy();
+	}
+
+}
+
+
+rpwa::multibinPlots::~multibinPlots()
+{
+	if(_negLogLikeSpectrum != nullptr) delete _negLogLikeSpectrum;
+	for(const auto& e: _intensities) delete e.second;
+	for(const auto& eij: _phases)
+		for(const auto& e: eij.second) delete e.second;
+	for(const auto& e: _additionalPlots) delete e.second;
+}
+
 
 void
 rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePatterns, const size_t nRefWaves) {

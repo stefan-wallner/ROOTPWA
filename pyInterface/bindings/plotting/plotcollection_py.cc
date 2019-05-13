@@ -119,6 +119,11 @@ namespace {
 		        bp::extract<std::string>(desc)));
 	}
 
+	boost::shared_ptr<rpwa::multibinPlots>
+	multibinPlots_copy(rpwa::multibinPlots& self){
+		return boost::shared_ptr<rpwa::multibinPlots>(new rpwa::multibinPlots(self));
+	}
+
 
 	void
 	multibinPlots_buildDefaultPlots(rpwa::multibinPlots& self, bp::list waveNamePatterns) {
@@ -321,6 +326,7 @@ rpwa::py::exportPlotcollection() {
 	bp::class_<rpwa::multibinPlots, boost::shared_ptr<rpwa::multibinPlots>>("multibinPlots")
 	        .def(bp::init<const rpwa::multibinPlots&>())
 	        .def("__init__", bp::make_constructor(&multibinPlots_constructor))
+	        .def("copy", &multibinPlots_copy)
 	        .def("buildDefaultPlots", &multibinPlots_buildDefaultPlots, bp::arg("waveNamePatterns") = bp::list())
 	        .def("buildMultibinSummedPlots", &multibinPlots_buildMultibinSummedPlots)
 	        .def("setIntensitySpectra", &multibinPlots_setIntensities)

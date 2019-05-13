@@ -135,7 +135,9 @@ namespace rpwa {
 		 */
 		multibinPlots(std::vector<rpwa::fitResult>&& fitresults, const std::string& label, const std::string& description);
 
-		~multibinPlots() {}
+		multibinPlots(const multibinPlots& other);
+
+		~multibinPlots();
 
 		/***
 		 * Build all intensity spectra and phase plots.

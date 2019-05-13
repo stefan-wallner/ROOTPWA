@@ -2,6 +2,7 @@ import gc
 import hashlib
 import os
 from collections import defaultdict
+import copy
 import pyRootPwa.core
 import pyRootPwa.utils
 from pyRootPwa.utils import printErr
@@ -68,6 +69,19 @@ class plotcollection(object):
 		pyRootPwa.utils.printInfo("Building default plots")
 		for _,multibinPlots in self.iterMultibinPlots():
 			multibinPlots.buildDefaultPlots()
+
+
+	def copy(self):
+		newPC = plotcollection()
+
+# pylint: disable=W0212
+		newPC._multibinPlots = {b: p.copy() for b,p in self._multibinPlots.iteritems()}
+		newPC._multibinSummedPlots = {v: {b: p.copy() for b,p in summedPlots.iteritems() } for v, summedPlots in self._multibinSummedPlots.iteritems()}
+# pylint: enable=W0212
+
+		for attName in ['_waveNames', '_descriptions', '_labels']:
+			setattr(newPC, attName, copy.deepcopy(getattr(self, attName)))
+		return newPC
 
 
 	def buildMultibinSummedPlots(self):
