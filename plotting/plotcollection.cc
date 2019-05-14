@@ -15,7 +15,7 @@ using namespace rpwa;
 
 namespace {
 	double phaseSpectrumDiscontinuity(componentPlot::plotType* plot);
-	std::set<std::string> buildAllTotals(const std::vector<std::string>& waveNames);
+	std::set<std::string> buildListOfAllTotals(const std::vector<std::string>& waveNames);
 	std::set<std::string> extractTotalPatternsFromWavename(std::string waveName, const bool oldNaming = false);
 }
 
@@ -152,25 +152,41 @@ rpwa::multibinPlots::~multibinPlots()
 
 
 void
-rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePatterns, const size_t nRefWaves) {
-	// build intensity plots
+rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePatterns, const size_t nRefWaves, const bool buildAllTotals) {
+	// build list of patterns for which the intensity plots should be generated
+	std::set<std::string> waveNamePatternsToBuild = { ".*" };
+	waveNamePatternsToBuild.insert(waveNamePatterns.begin(), waveNamePatterns.end());
 	for (const auto& waveName : _metadata.waveNames) {
-		intensitySpectrum(waveName); // triggers generation of intensity spectrum
+//		intensitySpectrum(waveName); // triggers generation of intensity spectrum
+		waveNamePatternsToBuild.insert(rpwa::escapeRegExpSpecialChar(waveName));
 	}
-	std::set<std::string> allWaveNamePatterns = buildAllTotals(_metadata.waveNames);
-	std::set<std::string> additionalWaveNamePatterns = { ".*" };
-	additionalWaveNamePatterns.insert(waveNamePatterns.begin(), waveNamePatterns.end());
-	for (const auto& wavenamePattern : additionalWaveNamePatterns) {
-		intensitySpectrumRegEx(wavenamePattern);
+	if (buildAllTotals) {
+		std::set<std::string> allWaveNamePatterns = buildListOfAllTotals(_metadata.waveNames);
+		waveNamePatternsToBuild.insert(allWaveNamePatterns.begin(), allWaveNamePatterns.end());
 	}
+	std::vector<std::string> waveNamesOrderedByIntensity;
 
+#pragma omp parallel
+	{
+		// build intensities
+#pragma omp for schedule(dynamic)
+		for (size_t i = 0; i < waveNamePatternsToBuild.size(); ++i) {
+			auto it = waveNamePatternsToBuild.begin();
+			std::advance(it, i);
+			intensitySpectrumRegEx(*it);
+		}
 
-	const std::vector<std::string> waveNamesOrderedByIntensity = waveNamesSortedByIntensity();
-	// build phase plots
-	for (const auto& waveNameA : _metadata.waveNames) {
-		for(size_t iWaveNameB = 0; iWaveNameB < std::min(nRefWaves,waveNamesOrderedByIntensity.size()); ++iWaveNameB){
-			const std::string& waveNameB = waveNamesOrderedByIntensity[iWaveNameB];
-			phaseSpectrum(waveNameA, waveNameB); // triggers generation of phase spectrum
+#pragma omp single
+	waveNamesOrderedByIntensity = waveNamesSortedByIntensity(); // needs the intensities to be calculated
+
+		// build phase plots
+#pragma omp for
+		for (size_t iWaveNameA = 0; iWaveNameA < _metadata.waveNames.size(); ++iWaveNameA) {
+			const string& waveNameA = _metadata.waveNames[iWaveNameA];
+			for (size_t iWaveNameB = 0; iWaveNameB < std::min(nRefWaves, waveNamesOrderedByIntensity.size()); ++iWaveNameB) {
+				const std::string& waveNameB = waveNamesOrderedByIntensity[iWaveNameB];
+				phaseSpectrum(waveNameA, waveNameB); // triggers generation of phase spectrum
+			}
 		}
 	}
 
@@ -179,6 +195,7 @@ rpwa::multibinPlots::buildDefaultPlots(const std::vector<std::string> waveNamePa
 
 	buildAdditionalPlots();
 }
+
 
 void
 rpwa::multibinPlots::buildAdditionalPlots(){
@@ -409,7 +426,7 @@ rpwa::multibinPlots::write(TDirectory* directory) {
 	{
 		TDirectory* directoryAddFitInfo = directory->mkdir("additionalFitInformation");
 		directoryAddFitInfo->cd();
-		static_cast<componentPlot::baseType*>(_negLogLikeSpectrum)->Write("negLogLikeSpectrum");
+		if (_negLogLikeSpectrum != nullptr)	static_cast<componentPlot::baseType*>(_negLogLikeSpectrum)->Write("negLogLikeSpectrum");
 	}
 
 	// write fit results
@@ -567,10 +584,6 @@ rpwa::multibinPlots::load(TDirectory* directory, const bool onlyBest) {
 					<< directory->GetName() << "'." << std::endl;
 					return false;
 				}
-			}else{
-				printWarn << "Cannot find neg. log-likelihood plot in multibinplots folder '"
-					<< directory->GetName() << "'. Try to build from fit results." << std::endl;
-				if(negLogLikeSpectrum() == nullptr) return false;
 			}
 		} else {
 			printErr<< "Could not find additional fit information folder in multibinplots folder '"
@@ -707,6 +720,7 @@ rpwa::multibinPlots::_intensitySpectrum(const std::string& waveNamePattern) {
 		if (p != nullptr) { // if we can generate the intensity spectrum
 			plots = static_cast<componentPlot*>(new componentPlot::baseType(waveNamePattern.c_str(), waveNamePattern.c_str()));
 			plots->addForComponent(plotComponents::massIndependent, label(), p);
+#pragma omp critical(_plotIntensities)
 			_intensities[waveNamePattern] = plots;
 		}
 		return plots;
@@ -732,6 +746,7 @@ rpwa::multibinPlots::phaseSpectrum(const std::string& waveNameA,
 			const std::string spectrumName = waveNameA + "__" + waveNameB;
 			plots = static_cast<componentPlot*>(new componentPlot::baseType(spectrumName.c_str(), spectrumName.c_str()));
 			plots->addForComponent(plotComponents::massIndependent, label(), p);
+#pragma omp critical(_plotPhases)
 			_phases[waveNameA][waveNameB] = plots;
 		}
 		return plots;
@@ -990,7 +1005,7 @@ namespace {
 
 
 	std::set<std::string>
-	buildAllTotals(const std::vector<std::string>& waveNames) {
+	buildListOfAllTotals(const std::vector<std::string>& waveNames) {
 
 		// create set of all totals
 		std::set<std::string> allTotals;

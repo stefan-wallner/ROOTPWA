@@ -126,10 +126,10 @@ namespace {
 
 
 	void
-	multibinPlots_buildDefaultPlots(rpwa::multibinPlots& self, bp::list waveNamePatterns) {
+	multibinPlots_buildDefaultPlots(rpwa::multibinPlots& self, bp::list waveNamePatterns, const int nRefWaves, const bool buildAllTotals) {
 		std::vector<std::string> waveNamePatternsC;
 		rpwa::py::convertBPObjectToVector(waveNamePatterns, waveNamePatternsC);
-		self.buildDefaultPlots(waveNamePatternsC);
+		self.buildDefaultPlots(waveNamePatternsC, nRefWaves, buildAllTotals);
 	}
 
 
@@ -327,7 +327,7 @@ rpwa::py::exportPlotcollection() {
 	        .def(bp::init<const rpwa::multibinPlots&>())
 	        .def("__init__", bp::make_constructor(&multibinPlots_constructor))
 	        .def("copy", &multibinPlots_copy)
-	        .def("buildDefaultPlots", &multibinPlots_buildDefaultPlots, bp::arg("waveNamePatterns") = bp::list())
+	        .def("buildDefaultPlots", &multibinPlots_buildDefaultPlots, (bp::arg("waveNamePatterns") = bp::list(), bp::arg("nRefWaves") = 0, bp::arg("buildAllTotals") = false))
 	        .def("buildMultibinSummedPlots", &multibinPlots_buildMultibinSummedPlots)
 	        .def("setIntensitySpectra", &multibinPlots_setIntensities)
 	        .def("setLabel", &rpwa::multibinPlots::setLabel)

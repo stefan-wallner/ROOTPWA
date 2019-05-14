@@ -66,11 +66,6 @@ class plotcollection(object):
 			del fitresultsInMultibin[multibin]
 			gc.collect()
 
-		pyRootPwa.utils.printInfo("Building default plots")
-		for _,multibinPlots in self.iterMultibinPlots():
-			multibinPlots.buildDefaultPlots()
-
-
 	def copy(self):
 		newPC = plotcollection()
 
@@ -82,6 +77,10 @@ class plotcollection(object):
 		for attName in ['_waveNames', '_descriptions', '_labels']:
 			setattr(newPC, attName, copy.deepcopy(getattr(self, attName)))
 		return newPC
+
+	def buildDefaultPlots(self, **kwargs):
+		for _,multibinPlots in self.iterMultibinPlots():
+			multibinPlots.buildDefaultPlots(**kwargs)
 
 
 	def buildMultibinSummedPlots(self):
@@ -139,6 +138,7 @@ class plotcollection(object):
 		self._descriptions.update(other.descriptions())
 		self._waveNames = sorted(list(set(  self._waveNames + other.waveNames() )))
 		return True
+
 
 	def addMultiBin(self, multibin, fitresults = None, dirIn = None, multibinplots = None, onlyBest = False):
 		'''

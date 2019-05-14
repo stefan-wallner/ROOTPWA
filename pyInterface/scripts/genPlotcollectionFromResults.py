@@ -28,6 +28,8 @@ if __name__ == "__main__":
 	parser.add_argument("--label", type=str, metavar="label", dest="label", default="" ,
 	                    help="Label of the result. If not given, a label is generated automatically.")
 	parser.add_argument("--parallel", action="store_true", help="Build multibins in parallel")
+	parser.add_argument("--n-ref-waves", dest='nRefWaves', type=int, default=4, help="Number of reference waves for which phases are generated.")
+	parser.add_argument("--no-totals", dest='buildAllTotals', action="store_false", default=True, help="Do not build wave-totals.")
 	parser.add_argument("--clearNames", action="store_true", help="Clear prod.-amp and wave names from further results. (Ugly hack. Should be used with care)")
 
 	args = parser.parse_args()
@@ -52,11 +54,11 @@ if __name__ == "__main__":
 		else:
 			raise Exception("Cannot find '{0}'!".format(path))
 
+	plotcollection = None
+
 	if not args.parallel:
 		plotcollection = pyRootPwa.plotcollection(fitResults, description=args.description, label=args.label if args.label else None,
 		                                          clearNames=args.clearNames)
-		plotcollection.buildMultibinSummedPlots()
-		statusOk = plotcollection.write(args.output)
 	else:
 		label = pyRootPwa.plotcollection.buildLabelFromHash(fitResults, args.description)
 		processes = []
@@ -71,6 +73,7 @@ if __name__ == "__main__":
 			return tmpFilename
 		pool = multiprocessing.Pool(min(len(fitResults), multiprocessing.cpu_count()*2))
 		tmpFilenames = pool.map(_worker, fitResults)
+		pool.terminate()
 		def _cleanup():
 			for filename in tmpFilenames:
 				if os.path.exists(filename):
@@ -86,10 +89,15 @@ if __name__ == "__main__":
 		master = plotcollections[0]
 		for plotcollection in plotcollections[1:]:
 			master.mergePlotsInto(plotcollection)
+		plotcollection = master
 
-		master.buildMultibinSummedPlots()
+	pyRootPwa.utils.printInfo("Building default plots")
+	master.buildDefaultPlots(nRefWaves=args.nRefWaves, buildAllTotals=args.buildAllTotals)
 
-		statusOk = master.write(args.output)
+	pyRootPwa.utils.printInfo("Building multibin summed plots")
+	master.buildMultibinSummedPlots()
+
+	statusOk = master.write(args.output)
 
 	if statusOk:
 		sys.exit(0)

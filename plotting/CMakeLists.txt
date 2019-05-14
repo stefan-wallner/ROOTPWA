@@ -45,6 +45,8 @@ include_directories(
 	${ROOT_INCLUDE_DIR}
 	)
 
+add_compile_options(-fopenmp)
+add_link_options(-fopenmp)
 
 # source files that are compiled into library
 set(SOURCES
