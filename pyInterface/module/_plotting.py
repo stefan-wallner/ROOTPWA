@@ -246,6 +246,20 @@ class plotcollection(object):
 		return None
 
 
+	def variableRange(self, variable = None):
+		'''
+		@return: (lower-edge, upper-edge) of the range of the variable from all multibins
+		'''
+		if variable is None:
+			if len(self._multibinSummedPlots) == 1:
+				variable = self._multibinSummedPlots.keys()[0]
+			else:
+				printErr("Need to implement multibinSummed plot over all variables") # TODO
+				return None
+		return ( min([b.boundaries[variable][0] for b in self._multibinPlots.keys() ]),
+		         max([b.boundaries[variable][1] for b in self._multibinPlots.keys() ]))
+
+
 	def iterMultibinPlots(self):
 		'''
 		Iterate over sorted multibins
