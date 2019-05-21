@@ -23,7 +23,7 @@ if __name__ == "__main__":
 	parser.add_argument("-b", type=int, metavar="eventFileId", default=-1, dest="eventFileId", help="event file id to be calculated (default: all)")
 	parser.add_argument("-e", type=str, metavar="eventsType", default="all", dest="eventsType", help="events type to be calculated ('real', 'generated' or 'accepted', default: all)")
 	parser.add_argument("-f", "--no-progress-bar", action="store_true", dest="noProgressBar", help="disable progress bars (decreases computing time)")
-	parser.add_argument("-k", "--keyfileIndex", action='append', metavar="#",
+	parser.add_argument("-k", "--keyfileIndex", action='append', metavar="#", type=int,
 	                    help="keyfile index to calculate amplitude for (overrides settings from the config file, index from 0 to number of keyfiles - 1)")
 	parser.add_argument("-w", type=str, metavar="wavelistFileName", default="", dest="wavelistFileName", help="path to wavelist file (default: none)")
 	parser.add_argument("--output", type=str, metavar="outputFileName", default="", dest="outputFileName",
@@ -54,7 +54,7 @@ if __name__ == "__main__":
 		allWaveNames = fileManager.getWaveNameList()
 		for keyfileIndex in args.keyfileIndex:
 			if not keyfileIndex < len(allWaveNames):
-				pyRootPwa.utils.printErr("keyfileIndex from command line argument out of range. Maximum value is " + str(len(allWaveNames)-1) + ". Aborting...")
+				pyRootPwa.utils.printErr("keyfileIndex '" + str(keyfileIndex) + "' from command line argument out of range. Maximum value is " + str(len(allWaveNames)-1) + ". Aborting...")
 				sys.exit(1)
 			pyRootPwa.utils.printInfo("using keyfile index " + str(keyfileIndex) + " resulting in the wave name '" + allWaveNames[keyfileIndex] + "'.")
 		waveList = [allWaveNames[keyfileIndex] for keyfileIndex in args.keyfileIndex]
