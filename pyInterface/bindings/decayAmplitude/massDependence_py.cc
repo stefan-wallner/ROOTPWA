@@ -619,7 +619,10 @@ void rpwa::py::exportMassDependence() {
 		.def("amp", &binnedMassDependenceWrapper::amp, &binnedMassDependenceWrapper::default_amp)
 		.def("amp", &rpwa::binnedMassDependence::amp)
 		.def("name", &binnedMassDependenceWrapper::name, &binnedMassDependenceWrapper::default_name)
-		.def("name", &rpwa::binnedMassDependence::name);
+		.def("name", &rpwa::binnedMassDependence::name)
+		.def("getMassMin", &rpwa::binnedMassDependence::getMassMin)
+		.def("getMassMax", &rpwa::binnedMassDependence::getMassMax)
+		;
 
 	bp::class_<lookupTableWrapper, bp::bases<rpwa::massDependence> >("lookupTable", bp::init<const std::string&, const std::string&, const bool>())
 		.def(bp::self_ns::str(bp::self))
