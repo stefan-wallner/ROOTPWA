@@ -196,6 +196,18 @@ namespace {
 		return fitResultsInMassbins;
 	}
 
+
+	bp::dict
+	multibinPlots_bestFitResultInMassbins(const rpwa::multibinPlots& self) {
+		std::map<double, rpwa::fitResult > bestFitResultInMassbinsC = self.bestFitResultInMassbins();
+		bp::dict bestFitResultInMassbins;
+		for (const auto& mass_fitResultC : bestFitResultInMassbinsC) {
+			bestFitResultInMassbins[mass_fitResultC.first] = mass_fitResultC.second;
+		}
+		return bestFitResultInMassbins;
+	}
+
+
 	bp::dict
 	multibinPlots_nResultsInMassbins(rpwa::multibinPlots& self) {
 		const std::map<double, size_t >& nC = self.nResultsInMassbins();
@@ -214,6 +226,14 @@ namespace {
 			nPy[mass_n.first] = mass_n.second;
 		}
 		return nPy;
+	}
+
+	bp::list
+	multibinPlots_massBinBoundaries(rpwa::multibinPlots& self){
+		const std::vector<std::pair<double,double>> boundariesC = self.massBinBoundaries();
+		bp::list boundaries;
+		for(const auto& boundaryC: boundariesC) boundaries.append(bp::make_tuple(boundaryC.first, boundaryC.second));
+		return boundaries;
 	}
 
 	bp::dict
@@ -339,11 +359,12 @@ rpwa::py::exportPlotcollection() {
 	        .def("write", &multibinPlots_write)
 	        .def("load", &multibinPlots_load, (bp::args("directory"), bp::args("onlyBest") = false))
 	        .def("fitResultsInMassbins", &multibinPlots_fitResultsInMassbins)
+	        .def("bestFitResultInMassbins", &multibinPlots_bestFitResultInMassbins)
 	        .def("nResultsInMassbins", &multibinPlots_nResultsInMassbins)
 	        .def("nConvergedResultsInMassbins", &multibinPlots_nConvergedResultsInMassbins)
 	        .def("nBestResultInMassBin", &multibinPlots_nBestResultInMassbins)
 	        .def("massBinCenters", &rpwa::multibinPlots::massBinCenters)
-	        .def("massBinBoundaries", &rpwa::multibinPlots::massBinBoundaries)
+	        .def("massBinBoundaries", &multibinPlots_massBinBoundaries)
 	        .def("waveNames", &multibinPlots_waveNames)
 	        .def("getAdditionalPlot", &multibinPlots_getAdditionalPlot, bp::return_internal_reference<>())
 	        .def("addAdditionalPlot", &multibinPlots_addAdditionalPlot)

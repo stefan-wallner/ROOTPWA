@@ -829,6 +829,12 @@ rpwa::multibinPlots::getAdditionalPlot(const std::string& name) {
 	return nullptr;
 }
 
+std::map<double, rpwa::fitResult>
+rpwa::multibinPlots::bestFitResultInMassbins() const {
+	std::map<double, rpwa::fitResult> results;
+	for(const auto& mass_results: _fitResultsInMassbins) results.emplace(mass_results.first, mass_results.second[0]);
+	return results;
+}
 
 std::vector<double>
 rpwa::multibinPlots::massBinCenters() const {

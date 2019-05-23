@@ -286,6 +286,11 @@ namespace rpwa {
 		const std::map<double, std::vector<fitResult> >& fitResultsInMassbins() const {return _fitResultsInMassbins;}
 
 		/***
+		 * @return map of mass-bin centers and best fit result per mass bin
+		 */
+		std::map<double, fitResult > bestFitResultInMassbins() const;
+
+		/***
 		 * @return Number of fit results in each mass bin
 		 */
 		const std::map<double, size_t>& nResultsInMassbins() const { return _metadata.nResultsInMassBin;}

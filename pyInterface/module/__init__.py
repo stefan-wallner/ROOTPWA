@@ -10,7 +10,7 @@ from _fit import addCovarianceMatrix
 from _integrals import calcIntegrals
 from _integralsOnTheFly import calcIntegralsOnTheFly
 from _likelihood import initLikelihood
-from _plotting import plotcollection
+from _plotting import plotcollection, getRegexForFreedIsobarWaves, getBinCentersOfFreedWaves
 
 import utils
 ROOT = utils.ROOT

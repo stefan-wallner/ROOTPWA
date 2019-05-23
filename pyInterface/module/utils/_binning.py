@@ -6,8 +6,13 @@ class multiBin(object):
 
 
 	def __init__(self, boundaries): # boundaries = { "binningVariable": (lowerBound, upperBound) }
-		if not isinstance(boundaries, dict):
+		if isinstance(boundaries, multiBin):
+			boundaries = copy.copy(boundaries.boundaries)
+		elif isinstance(boundaries, dict):
+			pass
+		else:
 			raise TypeError("Boundaries is not of type 'dict'.")
+
 		for key in boundaries.keys():
 			if not isinstance(key, str):
 				raise TypeError("Binning variable name is not of type 'str'.")
@@ -180,7 +185,7 @@ class multiBin(object):
 		@rtype: multiBin
 		'''
 		if exception is None:
-			return copy.deepcopy(self)
+			return multiBin(self)
 
 		if isinstance(exception, str):
 			exception = [exception]

@@ -3,6 +3,8 @@ import hashlib
 import os
 from collections import defaultdict
 import copy
+import re
+import numpy as np
 import pyRootPwa.core
 import pyRootPwa.utils
 from pyRootPwa.utils import printErr
@@ -16,6 +18,7 @@ class plotcollection(object):
 		self._multibinSummedPlots = {} # indices: [<summing-variable>][<multibin>],
 		                               # where <multibin> is a multibin in all variables except the summed one
 		self._waveNames = []
+		self._freedIsobarWaveNames = {}
 		self._descriptions = {}
 		self._labels = []
 
@@ -74,7 +77,7 @@ class plotcollection(object):
 		newPC._multibinSummedPlots = {v: {b: p.copy() for b,p in summedPlots.iteritems() } for v, summedPlots in self._multibinSummedPlots.iteritems()}
 # pylint: enable=W0212
 
-		for attName in ['_waveNames', '_descriptions', '_labels']:
+		for attName in ['_waveNames', '_freedIsobarWaveNames', '_descriptions', '_labels']:
 			setattr(newPC, attName, copy.deepcopy(getattr(self, attName)))
 		return newPC
 
@@ -137,6 +140,7 @@ class plotcollection(object):
 				self._labels.append(label)
 		self._descriptions.update(other.descriptions())
 		self._waveNames = sorted(list(set(  self._waveNames + other.waveNames() )))
+		self._freedIsobarWaveNames = findFreedIsobarWaves(self)
 		return True
 
 
@@ -167,6 +171,7 @@ class plotcollection(object):
 			self._multibinPlots[multibin] = multibinplots
 
 		self._waveNames = sorted(list(set(self._waveNames + self._multibinPlots[multibin].waveNames())))
+		self._freedIsobarWaveNames = findFreedIsobarWaves(self)
 		for label in self._multibinPlots[multibin].labels(): # ensures to keep the order
 			if label not in self._labels:
 				self._labels.append(label)
@@ -193,6 +198,22 @@ class plotcollection(object):
 		@return: sorted list of wave names of all multibins
 		'''
 		return self._waveNames
+
+	def freedIsobarWaveNames(self):
+		'''
+		@return: {<tag>: [waveNames]}, where <tag> is a label for this freed-isobar wave group
+		'''
+		return self._freedIsobarWaveNames
+
+
+	def findFeedIsobarWaveGroup(self, waveName):
+		'''
+		@return: Find the tag of the freed-isobar wave group where is wave belongs to. None if its not a freed-isobar wave
+		'''
+		for tag in self._freedIsobarWaveNames:
+			if waveName in self._freedIsobarWaveNames[tag]:
+				return tag
+		return None
 
 
 	def descriptions(self):
@@ -368,3 +389,29 @@ class plotcollection(object):
 			label.update(os.path.realpath(filename))
 			label.update(str(os.path.getmtime(filename)))
 		return label.hexdigest()[0:7]
+
+
+
+
+def getRegexForFreedIsobarWaves(tag):
+	return pyRootPwa.core.escapeRegExpSpecialChar(re.sub(r'(binned\[[0-9\.]+?,[0-9\.\+\-\/]+?)\]', r'\1,~~subsThis~~\]', tag)).replace('~~subsThis~~', '.*?')
+
+
+def getWaveNameForFreedIsobarWaves(freedIsobarWave):
+	return re.sub(r'(binned\[[0-9\.]+?,[0-9\.\+\-\/]+?),[0-9\.]+?,[0-9\.]+?\]', r'\1]', freedIsobarWave)
+
+
+def getBinCentersOfFreedWaves(binnedWaves):
+	return [ np.mean(map(float, re.sub(r'^.+?binned\[[0-9\.]+?,[0-9\.\+\-\/]+?,([0-9\.]+?,[0-9\.]+?)\].+?$', r'\1', waveName).split(','))) for waveName in binnedWaves ]
+
+
+def findFreedIsobarWaves(pc):
+	binnedWaves = {}
+	for waveName in [ waveName for waveName in  pc.waveNames() if 'binned' in waveName ] :
+		tag = getWaveNameForFreedIsobarWaves(waveName)
+		if tag not in binnedWaves:
+			binnedWaves[tag] = list()
+		binnedWaves[tag].append(waveName)
+	for tag in list(binnedWaves.keys()):
+		binnedWaves[tag] = sorted(binnedWaves[tag])
+	return binnedWaves
