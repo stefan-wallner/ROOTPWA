@@ -199,11 +199,13 @@ class plotcollection(object):
 		'''
 		return self._waveNames
 
-	def freedIsobarWaveNames(self):
+	def freedIsobarWaveNames(self, tag = None):
 		'''
-		@return: {<tag>: [waveNames]}, where <tag> is a label for this freed-isobar wave group
+		@return: if tag is None {<tag>: [waveNames]}, where <tag> is a label for this freed-isobar wave group else [waveNames] of the given tag
 		'''
-		return self._freedIsobarWaveNames
+		if tag is None:
+			return self._freedIsobarWaveNames
+		return self._freedIsobarWaveNames[tag]
 
 
 	def findFeedIsobarWaveGroup(self, waveName):
@@ -401,8 +403,12 @@ def getWaveNameForFreedIsobarWaves(freedIsobarWave):
 	return re.sub(r'(binned\[[0-9\.]+?,[0-9\.\+\-\/]+?),[0-9\.]+?,[0-9\.]+?\]', r'\1]', freedIsobarWave)
 
 
+def getBinEdgesOfFreedWaves(binnedWaves):
+	return [ tuple(map(float, re.sub(r'^.+?binned\[[0-9\.]+?,[0-9\.\+\-\/]+?,([0-9\.]+?,[0-9\.]+?)\].+?$', r'\1', waveName).split(','))) for waveName in binnedWaves ]
+
 def getBinCentersOfFreedWaves(binnedWaves):
-	return [ np.mean(map(float, re.sub(r'^.+?binned\[[0-9\.]+?,[0-9\.\+\-\/]+?,([0-9\.]+?,[0-9\.]+?)\].+?$', r'\1', waveName).split(','))) for waveName in binnedWaves ]
+	return [ np.mean(boundaries) for boundaries in getBinEdgesOfFreedWaves(binnedWaves) ]
+
 
 
 def findFreedIsobarWaves(pc):

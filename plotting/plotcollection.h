@@ -305,6 +305,7 @@ namespace rpwa {
 		 */
 		const std::map<double, size_t>& nBestResultInMassBin() const { return _metadata.nBestResultInMassBin;}
 
+		size_t nMassBins() const { return _fitResultsInMassbins.size();}
 		std::vector<double> massBinCenters() const;
 		std::vector<boundaryType> massBinBoundaries() const;
 

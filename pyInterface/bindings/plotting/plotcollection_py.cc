@@ -363,6 +363,7 @@ rpwa::py::exportPlotcollection() {
 	        .def("nResultsInMassbins", &multibinPlots_nResultsInMassbins)
 	        .def("nConvergedResultsInMassbins", &multibinPlots_nConvergedResultsInMassbins)
 	        .def("nBestResultInMassBin", &multibinPlots_nBestResultInMassbins)
+	        .def("nMassBins", &rpwa::multibinPlots::nMassBins)
 	        .def("massBinCenters", &rpwa::multibinPlots::massBinCenters)
 	        .def("massBinBoundaries", &multibinPlots_massBinBoundaries)
 	        .def("waveNames", &multibinPlots_waveNames)
