@@ -256,6 +256,14 @@ namespace {
 		return waveNames;
 	}
 
+	bp::list
+	multibinPlots_waveNamesSortedByIntensity(rpwa::multibinPlots& self) {
+		bp::list waveNames;
+		for (const auto& waveNameC : self.waveNamesSortedByIntensity()) {
+			waveNames.append(bp::str(waveNameC));
+		}
+		return waveNames;
+	}
 
 	bp::list
 	multibinPlots_descriptions(rpwa::multibinPlots& self) {
@@ -367,6 +375,7 @@ rpwa::py::exportPlotcollection() {
 	        .def("massBinCenters", &rpwa::multibinPlots::massBinCenters)
 	        .def("massBinBoundaries", &multibinPlots_massBinBoundaries)
 	        .def("waveNames", &multibinPlots_waveNames)
+	        .def("waveNamesSortedByIntensity", &multibinPlots_waveNamesSortedByIntensity)
 	        .def("getAdditionalPlot", &multibinPlots_getAdditionalPlot, bp::return_internal_reference<>())
 	        .def("addAdditionalPlot", &multibinPlots_addAdditionalPlot)
 	        .def("descriptions", &multibinPlots_descriptions)
