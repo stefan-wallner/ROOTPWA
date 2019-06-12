@@ -92,10 +92,10 @@ if __name__ == "__main__":
 		plotcollection = master
 
 	pyRootPwa.utils.printInfo("Building default plots")
-	master.buildDefaultPlots(nRefWaves=args.nRefWaves, buildAllTotals=args.buildAllTotals)
+	plotcollection.buildDefaultPlots(nRefWaves=args.nRefWaves, buildAllTotals=args.buildAllTotals)
 
 	pyRootPwa.utils.printInfo("Building multibin summed plots")
-	master.buildMultibinSummedPlots()
+	plotcollection.buildMultibinSummedPlots()
 
 	statusOk = master.write(args.output)
 
