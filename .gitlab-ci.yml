@@ -1,0 +1,58 @@
+stages:
+  - build
+  - test
+
+before_script:
+  - source /opt/rh/python27/enable
+  - source /opt/rh/devtoolset-7/enable
+  - python --version
+  - gcc --version
+  - source /usr/local/root/bin/thisroot.sh 
+  - export OMP_NUM_THREADS=6
+  - export BOOST_ROOT="/usr/local/boost"
+  - export LD_LIBRARY_PATH="/usr/local/boost/lib:${LD_LIBRARY_PATH}"
+  - export YAML_ROOT="/usr/local/yaml-cpp"
+  - export YAML_CPP="/usr/local/yaml-cpp"
+  - export LD_LIBRARY_PATH="/usr/local/yaml-cpp/lib:${LD_LIBRARY_PATH}"
+
+
+build:
+  stage: build
+  script: 
+    - cd build
+    - cmake3 ..
+    - make -j 2
+    - cd ..
+
+
+cache:
+  paths:
+    - "build"
+
+test-code:
+  stage: test
+  script: 
+    - export ROOTPWA="$(realpath .)"
+    - export PYTHONPATH="${ROOTPWA}/build/pyLib:${PYTHONPATH}"
+    - export PATH="${ROOTPWA}/build/bin:${PATH}" 
+    - cd build
+    - CTEST_OUTPUT_ON_FAILURE=1 make test
+    - cd ..
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - build/Testing/*
+
+test-mc:
+  stage: test
+  script: 
+    - export ROOTPWA="$(realpath .)"
+    - export PYTHONPATH="${ROOTPWA}/build/pyLib:${PYTHONPATH}"
+    - export PATH="${ROOTPWA}/build/bin:${PATH}" 
+    - cd test
+    - rm -rf ROOTPWA_MC_TEST
+    - ./testMC.sh
+    - rm -rf ROOTPWA_MC_TEST
+    - cd ..
+  
