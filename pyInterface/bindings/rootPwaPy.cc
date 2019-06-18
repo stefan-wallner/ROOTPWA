@@ -1,4 +1,5 @@
 #include <boost/python.hpp>
+#include <boost/python/numpy.hpp>
 
 // pyUtils
 #include "rootConverters_py.h"
@@ -71,6 +72,7 @@
 
 // plotting
 #include "plotcollection_py.h"
+
 
 
 BOOST_PYTHON_MODULE(libRootPwaPy){

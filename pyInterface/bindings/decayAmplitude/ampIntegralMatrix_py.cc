@@ -1,6 +1,8 @@
 #include "ampIntegralMatrix_py.h"
 
 #include <boost/python.hpp>
+#include <boost/python/stl_iterator.hpp>
+#include <boost/version.hpp>
 
 #include <TDirectory.h>
 
@@ -9,10 +11,15 @@
 #include "rootConverters_py.h"
 #include "stlContainers_py.h"
 
+#include <boost/python/numpy.hpp>
+
+
 namespace bp = boost::python;
+namespace np = boost::python::numpy;
 
 
 namespace {
+
 
 /*
 	const bp::list ampIntegralMatrix_waveDescriptions(const rpwa::ampIntegralMatrix& self) {
@@ -42,6 +49,18 @@ namespace {
 	                                                const std::string& waveNameJ)
 	{
 		return self.element(waveNameI, waveNameJ);
+	}
+
+	rpwa::ampIntegralMatrix ampIntegralMatrix_subMatrix(const rpwa::ampIntegralMatrix& self, const bp::list& waves){
+		if (bp::len(waves) == 0){
+			throw;
+		}
+		bp::extract<std::string> firstWavename(waves[0]);
+		if (firstWavename.check()){ // its a list of strings
+			return self.subMatrix(std::vector<std::string>(bp::stl_input_iterator<std::string>(waves), bp::stl_input_iterator<std::string>()));
+		} else { // its a list of ints
+			return self.subMatrix(std::vector<unsigned int>(bp::stl_input_iterator<unsigned int>(waves), bp::stl_input_iterator<unsigned int>()));
+		}
 	}
 
 	bool ampIntegralMatrix_integrate(rpwa::ampIntegralMatrix& self,
@@ -83,6 +102,23 @@ namespace {
 		return self.addEvent(amplitudes);
 	}
 
+	void ampIntegralMatrix_normalizeDecayAmplitudes1(rpwa::ampIntegralMatrix& self,
+	                                                 const std::vector<double>& normVector)
+	{
+		self.normalizeDecayAmplitudes(normVector);
+	}
+
+	void ampIntegralMatrix_normalizeDecayAmplitudes2(rpwa::ampIntegralMatrix& self,
+	                                                 const rpwa::ampIntegralMatrix& normMatrix)
+	{
+		self.normalizeDecayAmplitudes(normMatrix);
+	}
+
+	void ampIntegralMatrix_normalizeDecayAmplitudes3(rpwa::ampIntegralMatrix& self)
+	{
+		self.normalizeDecayAmplitudes();
+	}
+
 	bool ampIntegralMatrix_writeAscii(const rpwa::ampIntegralMatrix& self, const std::string& outFileName) {
 		return self.writeAscii(outFileName);
 	}
@@ -94,6 +130,21 @@ namespace {
 	int ampIntegralMatrix_Write(const rpwa::ampIntegralMatrix& self, const char* name = 0) {
 		return self.Write(name);
 	}
+
+	np::ndarray
+	asNpArray(const rpwa::ampIntegralMatrix& self)
+	{
+		bp::tuple shape = bp::make_tuple(self.nmbWaves(), self.nmbWaves());
+		np::dtype dtype = np::dtype::get_builtin< std::complex<double> >();
+		np::ndarray pyIntMatrix = np::empty(shape, dtype);
+		for (unsigned int i = 0; i < self.nmbWaves(); ++i) {
+			for (unsigned int j = 0; j < self.nmbWaves(); ++j) {
+				pyIntMatrix[bp::make_tuple(i, j)] = self.element(i, j);
+			}
+		}
+		return pyIntMatrix;
+	}
+
 
 }
 
@@ -141,6 +192,7 @@ void rpwa::py::exportAmpIntegralMatrix() {
 			, bp::return_value_policy<bp::copy_const_reference>()
 		)
 		.def("allWavesHaveDesc", &rpwa::ampIntegralMatrix::allWavesHaveDesc)
+		.def("subMatrix", &ampIntegralMatrix_subMatrix)
 
 //		Commenting this until it is decided how the boost::multi_array should be handled in python
 //		.def("matrix", &rpwa::ampIntegralMatrix::matrix)
@@ -165,10 +217,14 @@ void rpwa::py::exportAmpIntegralMatrix() {
 		     , bp::arg("waveNameAmplitudeMap"))
 
 		.def("renormalize", &rpwa::ampIntegralMatrix::renormalize)
+		.def("normalizeDecayAmplitudes", &ampIntegralMatrix_normalizeDecayAmplitudes1)
+		.def("normalizeDecayAmplitudes", &ampIntegralMatrix_normalizeDecayAmplitudes2)
+		.def("normalizeDecayAmplitudes", &ampIntegralMatrix_normalizeDecayAmplitudes3)
 		.def("writeAscii", &ampIntegralMatrix_writeAscii)
 		.def("readAscii", &ampIntegralMatrix_readAscii)
 
 		.def("Write", &ampIntegralMatrix_Write, bp::arg("name")=0)
+		.def("asNpArray", &asNpArray)
 
 		.add_static_property("debugAmpIntegralMatrix", &rpwa::ampIntegralMatrix::debug, &rpwa::ampIntegralMatrix::setDebug)
 		.def_readonly("integralObjectName", &rpwa::ampIntegralMatrix::integralObjectName);

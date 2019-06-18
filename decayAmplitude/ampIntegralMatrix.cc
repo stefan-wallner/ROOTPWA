@@ -30,7 +30,8 @@
 //
 //-------------------------------------------------------------------------
 
-
+#include <algorithm>
+#include <set>
 #include <boost/progress.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
@@ -232,6 +233,60 @@ ampIntegralMatrix::allWavesHaveDesc() const
 		if (not _waveDescriptions[i].keyFileParsed())
 			return false;
 	return true;
+}
+
+ampIntegralMatrix
+ampIntegralMatrix::subMatrix(const vector<unsigned int>& waveIndices) const {
+	if (waveIndices.size() > _nmbWaves){
+		printErr << "Number of wave indices (" << waveIndices.size()
+				 << ") larger as number of waves (" << _nmbWaves << ")!" << endl;
+		throw;
+	}
+
+	const auto maxIndex = max_element(waveIndices.begin(), waveIndices.end());
+	if (*maxIndex >= _nmbWaves){
+		printErr << "Largest wave index (" << *maxIndex
+				<< ") larger or equal number of waves " << _nmbWaves << ")!" << endl;
+		throw;
+	}
+	// check uniqueness of keys
+	if (set<unsigned int>(waveIndices.begin(), waveIndices.end()).size() != waveIndices.size()){
+		printErr << "Some indices appear more than once in the wave indices!" << endl;
+		printErr << set<unsigned int>(waveIndices.begin(), waveIndices.end()).size() << " unique indices from " << waveIndices.size() << endl;
+		throw;
+	}
+
+	ampIntegralMatrix submatrix;
+	TObject& submatrixBase = submatrix;
+	submatrixBase = *this;
+	submatrix._nmbWaves           = waveIndices.size();
+	submatrix._waveNames.reserve(submatrix._nmbWaves);
+	submatrix._waveDescriptions.reserve(submatrix._nmbWaves);
+	for(const auto& waveIndex: waveIndices){
+		submatrix._waveNames.push_back(_waveNames[waveIndex]);
+		if(_waveDescriptions.size() > 0)
+			submatrix._waveDescriptions.push_back(_waveDescriptions[waveIndex]);
+	}
+	submatrix._nmbEvents = _nmbEvents;
+	submatrix._integrals.resize(extents[waveIndices.size()][waveIndices.size()]);
+	for(unsigned int i=0; i < waveIndices.size(); ++i){
+		for(unsigned int j=0; j < waveIndices.size(); ++j){
+			submatrix._integrals[i][j] = _integrals[waveIndices[i]][waveIndices[j]];
+		}
+	}
+
+	return submatrix;
+}
+
+
+ampIntegralMatrix
+ampIntegralMatrix::subMatrix(const vector<string>& waveNames) const {
+	vector<unsigned int> waveIndices;
+	waveIndices.reserve(waveNames.size());
+	for(const auto& waveName: waveNames){
+		waveIndices.push_back(waveIndex(waveName));
+	}
+	return subMatrix(waveIndices);
 }
 
 
@@ -523,6 +578,34 @@ ampIntegralMatrix::integrate(const vector<const amplitudeMetadata*>& ampMetadata
 	printSucc << "calculated integrals of " << _nmbWaves << " amplitude(s) "
 	          << "for " << _nmbEvents << " events" << endl;
 	return success;
+}
+
+
+void
+ampIntegralMatrix::normalizeDecayAmplitudes( const vector<double>& normVector ){
+	if (normVector.size() != _nmbWaves){
+		printErr << "Normalization vector has wrong size ( " << normVector.size() << " )!" << endl;
+		throw;
+	}
+
+	vector<double> normValues(_nmbWaves);
+	for (unsigned int i=0; i < _nmbWaves; ++i)
+		normValues[i] = sqrt(normVector[i]);
+
+	for (unsigned int i=0; i < _nmbWaves; ++i){
+		for (unsigned int j=0; j < _nmbWaves; ++j){
+			_integrals[i][j] /= normValues[i]*normValues[j];
+		}
+	}
+}
+
+
+void
+ampIntegralMatrix::normalizeDecayAmplitudes( const ampIntegralMatrix& normMatrix){
+	vector<double> normVector(nmbWaves());
+	for(unsigned int i=0; i < nmbWaves(); ++i)
+		normVector[i] = normMatrix.element(waveName(i),waveName(i)).real();
+	normalizeDecayAmplitudes(normVector);
 }
 
 
