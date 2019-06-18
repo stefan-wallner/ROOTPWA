@@ -43,6 +43,7 @@ set(PARTIALWAVEFIT_SUBDIR partialWaveFit)
 set(PYUTILS_SUBDIR pyUtils)
 set(STORAGEFORMATS_SUBDIR storageFormats)
 set(UTILITIES_SUBDIR utilities)
+set(PLOTTING_SUBDIR plotting)
 
 
 # set include directories
@@ -65,6 +66,8 @@ include_directories(
 	${STORAGEFORMATS_SUBDIR}
 	${RPWA_UTILITIES_INCLUDE_DIR}
 	${UTILITIES_SUBDIR}
+	${RPWA_PLOTTING_INCLUDE_DIR}
+	${PLOTTING_SUBDIR}
 	SYSTEM
 	${Boost_INCLUDE_DIRS}
 	${Libconfig_INCLUDE_DIR}
@@ -126,6 +129,7 @@ set(SOURCES
 	${UTILITIES_SUBDIR}/physUtils_py.cc
 	${UTILITIES_SUBDIR}/reportingUtilsEnvironment_py.cc
 	${HIGHLEVELINTERFACE_SUBDIR}/getMassShapes_py.cc
+	${PLOTTING_SUBDIR}/plotcollection_py.cc
 	)
 if(USE_BAT)
 	LIST(APPEND SOURCES ${GENERATORS_SUBDIR}/importanceSampler_py.cc)
@@ -151,6 +155,7 @@ make_shared_library(
 	"${RPWA_PARTICLEDATA_LIB}"
 	"${RPWA_STORAGEFORMATS_LIB}"
 	"${RPWA_UTILITIES_LIB}"
+	"${RPWA_PLOTTING_LIB}"
 	)
 if(USE_NLOPT)
 	target_link_libraries(${THIS_LIB} "${NLopt_LIBS}")

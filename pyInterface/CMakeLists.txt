@@ -46,6 +46,7 @@ set(RPWA_PYTHON_PACKAGE_FILES
 	_integrals.py
 	_integralsOnTheFly.py
 	_likelihood.py
+	_plotting.py
 	core.py
 	utils/__init__.py
 	utils/_multibinBoundariesFromArgList.py
@@ -125,6 +126,7 @@ set(RPWA_PYTHON_SCRIPTS_FILES
 	deWeight.py
 	eigenvectorLikelihoodSlices.py
 	generatePhaseSpace.py
+	genPlotcollectionFromResults.py
 	genPseudoData.py
 	likelihoodPointCalculator.py
 	plotAngles.py

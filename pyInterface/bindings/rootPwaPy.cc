@@ -68,6 +68,9 @@
 #include "physUtils_py.h"
 #include "reportingUtilsEnvironment_py.h"
 
+// plotting
+#include "plotcollection_py.h"
+
 
 BOOST_PYTHON_MODULE(libRootPwaPy){
 
@@ -117,6 +120,7 @@ BOOST_PYTHON_MODULE(libRootPwaPy){
 	rpwa::py::exportPwaLikelihood();
 	rpwa::py::exportPwaFit();
 	rpwa::py::exportGetMassShapes();
+	rpwa::py::exportPlotcollection();
 #ifdef USE_NLOPT
 	rpwa::py::exportPwaNloptFit();
 #endif

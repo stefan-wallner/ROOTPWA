@@ -3,6 +3,9 @@
 #include<TClonesArray.h>
 #include<TF1.h>
 #include<TFile.h>
+#include<TGraphErrors.h>
+#include<TMultiGraph.h>
+#include<TDirectory.h>
 #include<TLorentzRotation.h>
 #include<TPython.h>
 #include<TRandom3.h>
@@ -131,7 +134,22 @@ void rpwa::py::exportRootConverters() {
 	);
 
 	bp::def(
+		"__RootConverters_convertFromPy_TDirectory", &rpwa::py::convertFromPy<TDirectory*>
+		, bp::return_internal_reference<1>()
+	);
+
+	bp::def(
 		"__RootConverters_convertFromPy_TF1", &rpwa::py::convertFromPy<TF1*>
+		, bp::return_internal_reference<1>()
+	);
+
+	bp::def(
+		"__RootConverters_convertFromPy_TGraphErrors", &rpwa::py::convertFromPy<TGraphErrors*>
+		, bp::return_internal_reference<1>()
+	);
+
+	bp::def(
+		"__RootConverters_convertFromPy_TMultiGraph", &rpwa::py::convertFromPy<TMultiGraph*>
 		, bp::return_internal_reference<1>()
 	);
 
