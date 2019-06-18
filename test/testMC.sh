@@ -90,6 +90,11 @@ if [ -d "${TESTDIR}" ]; then
 	printErr "Test directory ${TESTDIR} already exists. Aborting."
 fi
 
+# setup environment variable to ensure the correct ROOTPWA version
+PATH="${ROOTPWA}/build/bin:${PATH}"
+LD_LIBRARY_PATH="${ROOTPWA}/build/lib:${LD_LIBRARY_PATH}"
+PYTHONPATH="${ROOTPWA}/build/pyLib:${PYTHONPATH}"
+
 printInfo "Creating directories ..."
 
 mkdir -v "${TESTDIR}"
