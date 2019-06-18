@@ -33,6 +33,7 @@
 
 #include <boost/progress.hpp>
 #include <boost/numeric/conversion/cast.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
 
 #include "TClass.h"
 #include "TFile.h"
@@ -286,9 +287,23 @@ ampIntegralMatrix::addEvent(map<string, complex<double> > &amplitudes)
 		}
 	}
 	for (size_t iWave = 0; iWave < _nmbWaves; ++iWave) {
-		complex<double> iAmp = amplitudes[_waveNames[iWave]];
+		const complex<double> iAmp = amplitudes[_waveNames[iWave]];
 		for (size_t jWave = 0; jWave < _nmbWaves; ++jWave) {
-			complex<double> jAmp = amplitudes[_waveNames[jWave]];
+			const complex<double> jAmp = amplitudes[_waveNames[jWave]];
+			_integrals[iWave][jWave] += iAmp * conj(jAmp);
+		}
+	}
+	++_nmbEvents;
+	return true;
+}
+
+bool
+ampIntegralMatrix::addEvent(const vector< complex<double> > &amplitudes)
+{
+	for (size_t iWave = 0; iWave < _nmbWaves; ++iWave) {
+		const complex<double> iAmp = amplitudes[iWave];
+		for (size_t jWave = 0; jWave < _nmbWaves; ++jWave) {
+			const complex<double> jAmp = amplitudes[jWave];
 			_integrals[iWave][jWave] += iAmp * conj(jAmp);
 		}
 	}
@@ -345,8 +360,14 @@ ampIntegralMatrix::integrate(const vector<const amplitudeMetadata*>& ampMetadata
 	// set amplitude tree leafs
 	vector<amplitudeTreeLeaf*> ampTreeLeafs(_nmbWaves);
 	for(size_t waveIndex = 0; waveIndex < _nmbWaves; waveIndex++) {
-		ampTreeLeafs[waveIndex] = NULL;
+		ampTreeLeafs[waveIndex] = nullptr;
 		ampMetadata[waveIndex]->amplitudeTree()->SetBranchAddress(amplitudeMetadata::amplitudeLeafName.c_str(), &ampTreeLeafs[waveIndex]);
+		// set autoflush, cache, and max. basket size
+		// A cache size of 10 MB was far too small and puts lots of load to the storage server
+		const int cacheSize = static_cast<int>(100*1024*1024/_nmbWaves);
+		ampMetadata[waveIndex]->amplitudeTree()->SetAutoFlush(-cacheSize);
+		ampMetadata[waveIndex]->amplitudeTree()->OptimizeBaskets(cacheSize);
+		ampMetadata[waveIndex]->amplitudeTree()->SetCacheSize(cacheSize);
 	}
 
 	// make sure that either all or none of the waves have description (needed?)
@@ -400,77 +421,93 @@ ampIntegralMatrix::integrate(const vector<const amplitudeMetadata*>& ampMetadata
 		}
 	}
 
+	progress_display progressIndicator(_nmbEvents, cout, "");
+	bool             success      = true;
+	unsigned long    eventCounter = 0;
+
 	// loop over events and calculate integral matrix
 	accumulator_set<double, stats<tag::sum(compensated)> > weightAcc;
 	typedef accumulator_set<complex<double>, stats<tag::sum(compensated)> > complexAcc;
 	vector<vector<complexAcc> > ampProdAcc(_nmbWaves, vector<complexAcc>(_nmbWaves));
-	// process weight file and amplitudes
-	vector<vector<complex<double> > > amps(_nmbWaves);
-	progress_display progressIndicator(_nmbEvents, cout, "");
-	bool             success      = true;
-	unsigned long    eventCounter = 0;
-	for (unsigned long iEvent = 0; iEvent < _nmbEvents; ++iEvent) {
-		++progressIndicator;
 
-		if(eventTree) {
-			eventTree->GetEntry(iEvent);
-			if (not variables.inBoundaries(otfBin)) {
-				continue;
+	// get number of subAmps (the same for all waves and events
+	const unsigned int nmbSubAmps = (_nmbEvents > 0 and _nmbWaves > 0) ? ampTreeLeafs[0]->nmbIncohSubAmps() : 0;
+
+	// block size between 5000 and 200000 waves, depending on the number of waves
+	const unsigned long blockSize = min(max(static_cast<unsigned long int>(100000 * 500.0/_nmbWaves), 5000ul), 200000ul);
+	for (unsigned long iEventBlock = 0; iEventBlock < _nmbEvents/blockSize+1; ++iEventBlock){
+		// Store values for the current block
+		vector<unsigned long int> eventsInMultiBin;
+		vector<double> weights;
+		eventsInMultiBin.reserve(blockSize/2);
+		weights.reserve(useWeight? blockSize/2:0);
+
+		// check which events of the current multibin are in the log file
+		for (unsigned long iEvent = iEventBlock*blockSize; iEvent < min(_nmbEvents,(iEventBlock+1)*blockSize); ++iEvent) {
+			++progressIndicator;
+
+			if(eventTree) {
+				eventTree->GetEntry(iEvent);
+				if (not variables.inBoundaries(otfBin)) {
+					continue;
+				}
 			}
+			++eventCounter;
+			eventsInMultiBin.push_back(iEvent);
+
+			// sum up importance sampling weight
+			double weight = 1;
+			if (useWeight){
+				double w = 1;
+				if (not(weightFile >> w)) {
+					success = false;
+					printWarn << "error reading weight file. stopping integration "
+							<< "at event " << iEvent << " of total " << _nmbEvents << "." << endl;
+					break;
+				}
+				weight = 1.0/ w; // we have to undo the weighting of the events!
+				weights.push_back(weight);
+			}
+			weightAcc(weight);
 		}
-		++eventCounter;
 
-		// sum up importance sampling weight
-		double w = 1;
-		if (useWeight)
-			if (not(weightFile >> w)) {
-				success = false;
-				printWarn << "error reading weight file. stopping integration "
-				          << "at event " << iEvent << " of total " << _nmbEvents << "." << endl;
-				break;
-			}
-		const double weight = 1 / w; // we have to undo the weighting of the events!
-		weightAcc(weight);
-
-		// read amplitude values for this event from root trees
+		// load amplitudes wave by wave
+		vector<boost::numeric::ublas::matrix<complex<double>>> amps; // [event][wave][subAmp]
+		amps.reserve(eventsInMultiBin.size());
+		for(size_t i=0; i < eventsInMultiBin.size(); ++i) amps.emplace_back(_nmbWaves, nmbSubAmps);
 		for (unsigned int waveIndex = 0; waveIndex < _nmbWaves; ++waveIndex) {
-			ampMetadata[waveIndex]->amplitudeTree()->GetEntry(iEvent);
-			const unsigned int nmbSubAmps = ampTreeLeafs[waveIndex]->nmbIncohSubAmps();
-			if (nmbSubAmps < 1) {
-				printErr << "amplitude object for wave '" << _waveNames[waveIndex] << "' "
-				         << "does not contain any amplitude values "
-				         << "at event " << iEvent << " of total " << _nmbEvents << ". Aborting..." << endl;
-				throw;
-			}
-			// get all incoherent subamps
-			amps[waveIndex].resize(nmbSubAmps);
-			for (unsigned int subAmpIndex = 0; subAmpIndex < nmbSubAmps; ++subAmpIndex)
-				amps[waveIndex][subAmpIndex] = ampTreeLeafs[waveIndex]->incohSubAmp(subAmpIndex);
-		}
-
-		// sum up integral matrix elements
-		for (unsigned int waveIndexI = 0; waveIndexI < _nmbWaves; ++waveIndexI)
-			for (unsigned int waveIndexJ = 0; waveIndexJ < _nmbWaves; ++waveIndexJ) {
-				// sum over incoherent subamps
-				const unsigned int nmbSubAmps = amps[waveIndexI].size();
-				if (nmbSubAmps != amps[waveIndexJ].size()) {
-					printErr << "number of incoherent sub-amplitudes for wave '"
-					         << _waveNames[waveIndexI] << "' = " << nmbSubAmps
-					         << " differs from that of wave '" << _waveNames[waveIndexJ] << "' = "
-					         << amps[waveIndexJ].size()
-					         << " at event " << iEvent << " of total " << _nmbEvents << ". Aborting... "
-					         << "be sure to use only .root amplitude files, "
-					         << "if your channel has sub-amplitudes." << endl;
+			unsigned long int iEventOfAmplitude = 0;
+			for (const auto iEvent: eventsInMultiBin){
+				// read amplitude values for this event from root trees
+				ampMetadata[waveIndex]->amplitudeTree()->GetEntry(iEvent);
+				if (nmbSubAmps != ampTreeLeafs[waveIndex]->nmbIncohSubAmps()) {
+					printErr << "number of sub-amplitude for wave '" << _waveNames[waveIndex] << "' "
+							<< "differs from other waves "
+							<< "at event " << iEvent << " of total " << _nmbEvents << ". Aborting..." << endl;
 					throw;
 				}
-				complex<double> val = 0;
+				// get all incoherent subamps
 				for (unsigned int subAmpIndex = 0; subAmpIndex < nmbSubAmps; ++subAmpIndex)
-					val += amps[waveIndexI][subAmpIndex] * conj(amps[waveIndexJ][subAmpIndex]);
-				if (useWeight)
-					val *= weight;
-				ampProdAcc[waveIndexI][waveIndexJ](val);
+					amps[iEventOfAmplitude](waveIndex,subAmpIndex) = ampTreeLeafs[waveIndex]->incohSubAmp(subAmpIndex);
+				++iEventOfAmplitude;
 			}
-	}  // event loop
+		}
+
+		// calculate integral for the current block
+		for (unsigned long int iEventOfAmplitude = 0; iEventOfAmplitude < eventsInMultiBin.size(); ++iEventOfAmplitude){
+			// sum up integral matrix elements
+			for (unsigned int waveIndexI = 0; waveIndexI < _nmbWaves; ++waveIndexI)
+				for (unsigned int waveIndexJ = 0; waveIndexJ < _nmbWaves; ++waveIndexJ) {
+					// sum over incoherent subamps
+					complex<double> val = 0;
+					for (unsigned int subAmpIndex = 0; subAmpIndex < nmbSubAmps; ++subAmpIndex)
+						val += amps[iEventOfAmplitude](waveIndexI,subAmpIndex) * conj(amps[iEventOfAmplitude](waveIndexJ,subAmpIndex));
+					if (useWeight)
+						val *= weights[iEventOfAmplitude];
+					ampProdAcc[waveIndexI][waveIndexJ](val);
+				}
+		}
+	}  // event loop over blocks
 	_nmbEvents = eventCounter;
 
 	// copy values from accumulators and (if necessary) renormalize to
@@ -668,6 +705,8 @@ ampIntegralMatrix::readMultiArray()
 	complex<double>* integralData = _integrals.data();
 	for (unsigned int i = 0; i < _intStorageNmbElements; ++i)
 		integralData[i] = _intStorageData[i];
+	delete _intStorageData;
+	_intStorageData = nullptr;
 }
 
 

@@ -130,6 +130,7 @@ set(RPWA_PYTHON_SCRIPTS_FILES
 	genPlotcollectionFromResults.py
 	genPseudoData.py
 	likelihoodPointCalculator.py
+	mergeIntegrals.py
 	plotAngles.py
 	printMetadata.py
 	pwaFit.py

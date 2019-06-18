@@ -109,6 +109,7 @@ set(SOURCES
 	${GENERATORS_SUBDIR}/generatorPickerFunctions_py.cc
 	${GENERATORS_SUBDIR}/modelIntensity_py.cc
 	${HIGHLEVELINTERFACE_SUBDIR}/calcAmplitude_py.cc
+	${HIGHLEVELINTERFACE_SUBDIR}/calcIntegral_py.cc
 	${HIGHLEVELINTERFACE_SUBDIR}/pwaFit_py.cc
 	${NBODYPHASESPACE_SUBDIR}/nBodyPhaseSpaceGenerator_py.cc
 	${NBODYPHASESPACE_SUBDIR}/nBodyPhaseSpaceKinematics_py.cc

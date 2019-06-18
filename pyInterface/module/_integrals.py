@@ -49,6 +49,9 @@ def calcIntegrals(integralFileName, eventAndAmpFileDict, multiBin, weightFileNam
 		if not integrals[-1].integrate(ampMetas, -1, weightFileName, eventMeta, multiBin.boundaries):
 			pyRootPwa.utils.printErr("could not run integration. Aborting...")
 			return False
+		for ampMeta in ampMetas:
+			ampMeta.amplitudeTree().GetDirectory().GetFile().Close()
+		eventFile.Close()
 	integralMatrix = integrals[0]
 	if len(integrals) > 1:
 		for integral in integrals[1:]:

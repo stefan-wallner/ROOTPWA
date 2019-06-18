@@ -124,6 +124,12 @@ namespace rpwa {
 
 		bool setWaveNames(const std::vector<std::string> &waveNames);
 		bool addEvent(std::map<std::string, std::complex<double> > &amplitudes);
+		/**
+		 * Adds a new event to the integral matrix.
+		 * WARNING: No checks are performed.
+		 * @param amplitudes List of amplitudes IN THE ORDER AS DEFINED BY `setWaveNames`.
+		 */
+		bool addEvent(const std::vector<std::complex<double> > &amplitudes);
 		bool integrate(const std::vector<const rpwa::amplitudeMetadata*>& ampMetadata,
 		               const long                                         maxNmbEvents       = 0,
 		               const std::string&                                 weightFileName     = "",
