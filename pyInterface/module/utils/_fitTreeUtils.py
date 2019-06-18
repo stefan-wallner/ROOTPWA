@@ -41,38 +41,42 @@ def getFitResultsFromFiles(fitResultFileNames,
                            fitResultTreeName = "pwa",
                            fitResultBranchName = "fitResult_v2",
                            stripMatricesFromFurtherAttempts = False,
-                           onlyConvergedResults = False
+                           onlyConvergedResults = False,
+                           quiet = False
                           ):
 	'''
 	Loads all fit results from the fit-result file, grouped by their multibin.
 	@param stripMatricesFromFurtherAttempts: if True, the integral and covariance matrices are striped
 	                                         from each fit result except the best one and the best converged one in each multibin
 	@param onlyConvergedResults: if True, only the converged fit results are loaded and considered for the best fit result
+	@param quiet: print only warnings and errors
 
 	@return: { <multiBin>: [ <fit-result> ] }
 	         [ <fit-result> ] is ordered by logLikelihood from biggest to smallest
 	'''
 
 	return pyRootPwa.core.getFitResultsFromFilesInMultibins(fitResultFileNames, fitResultTreeName, fitResultBranchName,
-	                                                        False, stripMatricesFromFurtherAttempts, onlyConvergedResults)
+	                                                        False, stripMatricesFromFurtherAttempts, onlyConvergedResults, quiet)
 
 
 def getFitResultsFromFile(fitResultFileName,
                           fitResultTreeName = "pwa",
                           fitResultBranchName = "fitResult_v2",
                           stripMatricesFromFurtherAttempts = False,
-                          onlyConvergedResults = False
+                          onlyConvergedResults = False,
+                          quiet = False,
                          ):
 	'''
 	Loads all fit results from the fit-result file, grouped by their multibin.
 	@param stripMatricesFromFurtherAttempts: if True, the integral and covariance matrices are striped
 	                                         from each fit result except the best one and the best converged one in each multibin
 	@param onlyConvergedResults: if True, only the converged fit results are loaded and considered for the best fit result
+	@param quiet: print only warnings and errors
 	@return: { <multiBin>: [ <fit-result> ] }
 	         [ <fit-result> ] is ordered by logLikelihood from biggest to smallest
 	'''
 
-	return getFitResultsFromFiles([fitResultFileName], fitResultTreeName, fitResultBranchName, stripMatricesFromFurtherAttempts, onlyConvergedResults)
+	return getFitResultsFromFiles([fitResultFileName], fitResultTreeName, fitResultBranchName, stripMatricesFromFurtherAttempts, onlyConvergedResults, quiet)
 
 
 def getBestFitResultsFromFile(fitResultFileName,
@@ -80,7 +84,7 @@ def getBestFitResultsFromFile(fitResultFileName,
                               fitResultBranchName = "fitResult_v2"
                              ):
 
-	bestResultsInMultibin = pyRootPwa.core.getFitResultsFromFilesInMultibins([fitResultFileName], fitResultTreeName, fitResultBranchName, True, False, True)
+	bestResultsInMultibin = pyRootPwa.core.getFitResultsFromFilesInMultibins([fitResultFileName], fitResultTreeName, fitResultBranchName, True, False, True, False)
 	multiBins = set([ b.getSubMultiBin(exclude="mass") for b in bestResultsInMultibin.keys()])
 	if len(multiBins) != 1:
 		printWarn("Fit result file '{0}' contains more than one bin in a variable other than mass: {1}".format(fitResultFileName, list(multiBins)))

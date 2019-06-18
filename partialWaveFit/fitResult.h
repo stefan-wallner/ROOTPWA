@@ -399,6 +399,9 @@ namespace rpwa {
 		friend std::ostream& operator << (std::ostream&    out,
 		                                  const fitResult& result) { return result.print(out); }
 
+		/// Clear prod-amplitude and wave names to save space (ugly hack for the moment)
+		void clearNames() {_prodAmpNames.clear(); _waveNames.clear();}
+
 	private:
 
 		// helper functions
@@ -711,7 +714,9 @@ namespace rpwa {
 	/// \param stripMatricesFromNotBestResults if true, the covariance and integral matrices will be striped
 	///                                         from all fit results except the best one and the best converged one
 	///                                         in each multibin
-	/// \param onlyConvergedResults considere only converged results (to load and also for the best result)
+	/// \param onlyConvergedResults consider only converged results (to load and also for the best result)
+	/// \param quiet print only warnings and errors
+	/// \param clearNames clear amplitude / wave names from further attempts (ugly hack)
 	/// \return map with binningMap as key and list of fit results as value
 	std::map<rpwa::multibinBoundariesType, std::list<rpwa::fitResult>> getFitResultsFromFilesInMultibins(
 	                 const std::vector<std::string>& fileNames,
@@ -719,7 +724,9 @@ namespace rpwa {
 	                 const std::string& branchName,
 	                 const bool onlyBestResultInMultibin,
 	                 const bool stripMatricesFromNotBestResults,
-	                 const bool onlyConvergedResults);
+	                 const bool onlyConvergedResults,
+	                 const bool quiet = false,
+	                 const bool clearNames = false);
 
 	/// \brief wrapper class to calculate the spin-density matrix on the fly from a fit result
 	class spinDensityMatrixFromFitResult{
