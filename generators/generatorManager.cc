@@ -207,11 +207,46 @@ bool generatorManager::readReactionFile(const string& fileName) {
 					}
 				}
 			}
+
+			bool takeZpositionFromData = false;
+			if(configBeamSimulation->exists("takeZpositionFromData")) {
+				if(not configBeamSimulation->lookupValue("takeZpositionFromData", takeZpositionFromData)) {
+					printErr << "Could not read 'takeZpositionFromData' in 'beamSimulation' section." << endl;
+					return false;
+				}
+			}
+
+			double momentumResolution = 0.0;
+			if(configBeamSimulation->exists("momentumResolution")) {
+				if(not configBeamSimulation->lookupValue("momentumResolution", momentumResolution)) {
+					printErr << "Could not read 'momentumResolution' in 'beamSimulation' section." << endl;
+					return false;
+				}
+			}
+
+			double momentumPDFSigma = 0.0;
+			if(configBeamSimulation->exists("momentumPDFSigma")) {
+				if(not configBeamSimulation->lookupValue("momentumPDFSigma", momentumPDFSigma)) {
+					printErr << "Could not read 'momentumPDFSigma' in 'beamSimulation' section." << endl;
+					return false;
+				}
+			}
+
+			double momentumPDFMean = 0.0;
+			if(configBeamSimulation->exists("momentumPDFMean")) {
+				if(not configBeamSimulation->lookupValue("momentumPDFMean", momentumPDFMean)) {
+					printErr << "Could not read 'momentumPDFMean' in 'beamSimulation' section." << endl;
+					return false;
+				}
+			}
+
 			_beamAndVertexGenerator->setSigmaScalingFactor(sigmaScalingFactor);
+			_beamAndVertexGenerator->setMomentumResolutionCorrection(momentumResolution, momentumPDFSigma, momentumPDFMean);
 			if(not _beamAndVertexGenerator->loadBeamFile(_beamFileName)) {
 				printErr << "could not initialize beam and vertex generator." << endl;
 				return false;
 			}
+			_beamAndVertexGenerator->setTakeZpositionFromData(takeZpositionFromData);
 			printSucc << "initialized beam package." << endl;
 		} else {
 			printInfo << "beam package disabled." << endl;
