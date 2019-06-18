@@ -2,6 +2,8 @@
 @author: F. Kaspar, S. Wallner
 '''
 
+import os
+import time
 import numpy as np
 import pyRootPwa
 import pyRootPwa.utils
@@ -292,7 +294,7 @@ def findReferenceWave(referenceWavesDefinitions, refl, rank):
 	return foundReferences[0]
 
 def _loadMatrix(integralFileName, waveNames):
-	integralFile = pyRootPwa.ROOT.TFile.Open(integralFileName)
+	integralFile = pyRootPwa.ROOT.TFile.Open(_realpath(integralFileName))
 	integralMeta = pyRootPwa.core.ampIntegralMatrixMetadata.readIntegralFile(integralFile)
 	integralMatrixRpwa = integralMeta.getAmpIntegralMatrix()
 	nmbEvents = integralMatrixRpwa.nmbEvents()
@@ -323,8 +325,9 @@ def loadMatrices(normIntegralFileName, accIntegralFileName, waveNames):
 	normIntegrals = np.real(np.copy(normIntegralMatrix.diagonal()))
 
 	# normalize matrices
-	normIntegralMatrix = normIntegralMatrix / np.outer(np.sqrt(normIntegrals), np.sqrt(normIntegrals))
-	accIntegralMatrix = totAcc * accIntegralMatrix / np.outer(np.sqrt(normIntegrals), np.sqrt(normIntegrals))
+	nonZeroNormalization = np.outer(normIntegrals != 0, normIntegrals != 0)
+	accIntegralMatrix[nonZeroNormalization] = totAcc * accIntegralMatrix[nonZeroNormalization] / np.outer(np.sqrt(normIntegrals), np.sqrt(normIntegrals))[nonZeroNormalization]
+	normIntegralMatrix[nonZeroNormalization] = normIntegralMatrix[nonZeroNormalization] / np.outer(np.sqrt(normIntegrals), np.sqrt(normIntegrals))[nonZeroNormalization]
 
 	return normIntegralMatrix, accIntegralMatrix, normIntegrals, totAcc
 
@@ -347,15 +350,34 @@ def loadAmplitudes(eventAndAmpFileDict, waveNames, multibin, normIntegrals=None)
 	pyRootPwa.utils.printInfo("\t" + str(multibin))
 	amps = []
 	for eventFileName, amplitudeFilenames in eventAndAmpFileDict.iteritems():
-		ampsInEventfile = pyRootPwa.core.loadAmplitudes([amplitudeFilenames[w] for w in waveNames], waveNames, eventFileName, multibin.boundaries)
+		ampsInEventfile = pyRootPwa.core.loadAmplitudes([_realpath(amplitudeFilenames[w]) for w in waveNames], waveNames, _realpath(eventFileName), multibin.boundaries)
 		amps.append(ampsInEventfile)
 	amps = np.hstack(amps)
 
 	if normIntegrals is not None:
 		for i in xrange(amps.shape[0]):
-			amps[i, :] /= np.sqrt(normIntegrals[i])
+			if normIntegrals[i] != 0:
+				amps[i, :] /= np.sqrt(normIntegrals[i])
+			else:
+				assert np.sum(amps[i,:]) == 0.0
 
 	return amps
+
+
+def _realpath(filename):
+	'''
+	Try multiple times to resolve symlinks
+	@return result of os.path.realpath(filename)
+	'''
+	exception = IOError("Cannot get real path of file '{0}'".format(filename))
+	for _ in range(4):
+		try:
+			realPath = os.path.realpath(filename)
+			return realPath
+		except IOError as ioexception:
+			exception = ioexception
+		time.sleep(1)
+	raise exception
 
 
 class ModelConnected(Model):
