@@ -169,14 +169,24 @@ class multiBin(object):
 	def sameBinningVariables(self, other):
 		return sorted(self.boundaries.keys()) == sorted(other.boundaries.keys())
 
+
 	def inBin(self, binningInfo):
+		'''
+		@return: The binningInfo is in this multibin if
+		           - the binningInfo has a variable value for each variable of this multibin
+		           - the value of the binningInfo of each variable of this multibin must be within the boundaries [xmin, xmax[
+		           - this multibin is considered to be infinity for each variables of the binningInfo not defined in this multibin
+		'''
 		# binningInfo = { "variableName": value }
-		if sorted(binningInfo.keys()) != sorted(self.boundaries.keys()):
-			return False
-		for variableName, value in binningInfo.iteritems():
-			if value < self.boundaries[variableName][0] or value >= self.boundaries[variableName][1]:
+		for variableName, variableBoundaries in self.boundaries.iteritems():
+			if variableName in binningInfo:
+				value = binningInfo[variableName]
+				if value < variableBoundaries[0] or value >= variableBoundaries[1]:
+					return False
+			else:
 				return False
 		return True
+
 
 	def getSubMultiBin(self, exception=None):
 		'''
