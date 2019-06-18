@@ -97,7 +97,7 @@ if __name__ == "__main__":
 	pyRootPwa.utils.printInfo("Building multibin summed plots")
 	plotcollection.buildMultibinSummedPlots()
 
-	statusOk = master.write(args.output)
+	statusOk = plotcollection.write(args.output)
 
 	if statusOk:
 		sys.exit(0)
