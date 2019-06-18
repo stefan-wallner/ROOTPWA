@@ -43,6 +43,7 @@ include_directories(
 	${RPWA_UTILITIES_INCLUDE_DIR}
 	SYSTEM
 	${Boost_INCLUDE_DIRS}
+	${YamlCpp_INCLUDE_DIR}
 	${Libconfig_INCLUDE_DIR}
 	${PYTHON_INCLUDE_DIRS}
 	${ROOT_INCLUDE_DIR}
@@ -93,7 +94,9 @@ make_shared_library(
 	"${THIS_LIB}"
 	"${SOURCES}"
 	"${ROOT_LIBS}"
+	"${YamlCpp_LIBS}"
 	"${Libconfig_LIBS}"
+	"${Boost_FILESYSTEM_LIBRARY}"
 	"${RPWA_NBODYPHASESPACE_LIB}"
 	"${RPWA_PARTICLEDATA_LIB}"
 	"${RPWA_STORAGEFORMATS_LIB}"

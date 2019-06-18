@@ -33,12 +33,17 @@
 
 #include "massDependence.h"
 
+#include <algorithm>
+#include <cstdlib>
+#include <numeric>
+#include <stdexcept>
 #include <type_traits>
-#include <regex>
 
 #include <boost/numeric/ublas/io.hpp>
+#include <boost/filesystem.hpp>
 
 #include "libConfigUtils.hpp"
+#include "yamlCppUtils.hpp"
 #include "isobarDecayVertex.h"
 #include "particleDataTable.h"
 #include "phaseSpaceIntegral.h"
@@ -105,6 +110,13 @@ namespace {
 			throw;
 		}
 	}
+
+	template<typename T>
+	static std::vector<T> applyPermutation(const std::vector<T>& inputVector, const std::vector<size_t>& permutation){
+		std::vector<T> newVector(inputVector.size());
+		std::transform(permutation.begin(), permutation.end(), newVector.begin(), [&](size_t i) {return inputVector[i];});
+		return newVector;
+	}
 }
 
 
@@ -130,6 +142,7 @@ rpwa::createMassDependence(const std::string& massDepType, const libconfig::Sett
 	// otherwise try to resolve the name
 	return ::createMassDependence<rpwa::flatMassDependence,
 	                              rpwa::binnedMassDependence,
+	                              rpwa::lookupTable,
 	                              rpwa::relativisticBreitWigner,
 	                              rpwa::constWidthBreitWigner,
 	                              rpwa::rhoBreitWigner,
@@ -140,7 +153,9 @@ rpwa::createMassDependence(const std::string& massDepType, const libconfig::Sett
 	                              rpwa::piPiSWaveAuMorganPenningtonKachaev,
 	                              rpwa::rhoPrimeMassDep,
 	                              rpwa::KPiSGLASS,
-	                              rpwa::KPiSPalanoPennington>(massDepType, settings);
+	                              rpwa::KPiSPalanoPennington,
+	                              rpwa::KPiSPalanoPenningtonT21,
+	                              rpwa::KPiSMagalhaesElastic>(massDepType, settings);
 }
 
 
@@ -246,6 +261,195 @@ binnedMassDependence::parentLabelForWaveName(const isobarDecayVertex& v) const
 	      << spinQn(parent->J()) << parityQn(parent->P()) << parityQn(parent->C()) << ","
 	      << getMassMin() << "," << getMassMax() << "]";
 	return label.str();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+lookupTable::lookupTable(const std::string& filePath, const std::string& tag, const bool interpolate)
+:
+		massDependenceImpl<lookupTable>(),
+		_dataLoaded(false),
+		_interpolate(interpolate),
+		_filePath(filePath),
+		_tag(tag)
+{
+}
+
+boost::shared_ptr<lookupTable>
+lookupTable::Create(const libconfig::Setting* massDepKey)
+{
+	if (massDepKey != nullptr) {
+		string filePath, tag;
+		bool interpolate;
+
+		lookupParameter(Name(), massDepKey, "tag", tag);
+		std::vector<char> forbiddenChars = { '>', '<', ']', '[', '=' };
+		for (const auto& forbiddenChar : forbiddenChars) {
+			if (tag.find(forbiddenChar) != std::string::npos) {
+				printErr<< "The following character is forbidden in tags: '" << forbiddenChar << "'. Aborting..." << endl;
+				throw;
+			}
+		}
+
+		lookupParameter(Name(), massDepKey, "filePath", filePath);
+		boost::filesystem::path filePathObj(filePath);
+		if(filePathObj.is_relative()) {
+			const char* lookUpTablesDir = getenv("ROOTPWA_LOOKUPTABLES");
+			if(lookUpTablesDir == NULL) {
+				printErr << "Cannot set relative filePath for mass dependence '" << Name() << "' without 'ROOTPWA_LOOKUPTABLES' environment variable set." << endl;
+				throw std::exception();
+			}
+			boost::filesystem::path lookUpTablesDirObj(lookUpTablesDir);
+			filePath = ( lookUpTablesDirObj / filePathObj).string();
+		}
+
+		if (not massDepKey->lookupValue("interpolate", interpolate)){
+			interpolate = true;
+		}
+
+		return lookupTable::Create(filePath, tag, interpolate);
+	} else {
+		printWarn<< "no configuration given for mass dependence '" << Name() << "'" << endl;
+		throw std::exception();
+	}
+}
+
+
+void
+lookupTable::loadData()
+{
+	_mass.clear();
+	_ampRe.clear();
+	_ampIm.clear();
+
+	if (not boost::filesystem::exists(_filePath)) {
+		printErr << "Cannot find filePath '" << _filePath << "' for mass dependence '" << Name() << "'." << endl;
+		throw std::exception();
+	}
+
+	YAML::Node root;
+	if (rpwa::YamlCppUtils::parseYamlFile(_filePath, root, false)) {
+		for (YAML::const_iterator it = root.begin(); it != root.end(); ++it) {
+			const YAML::Node& dataPointNode = *it;
+
+			if (YAML::Node massNode = dataPointNode["mass"]) {
+				_mass.push_back(massNode.as<double>());
+			} else {
+				printErr<< "Cannot find 'mass' key in input file '" << _filePath << "'.";
+				throw std::exception();
+			}
+			if (YAML::Node ampReNode = dataPointNode["ampRe"]) {
+				_ampRe.push_back(ampReNode.as<double>());
+			} else {
+				printErr<< "Cannot find 'ampRe' key in input file '" << _filePath << "'.";
+				throw std::exception();
+			}
+			if (YAML::Node ampImNode = dataPointNode["ampIm"]) {
+				_ampIm.push_back(ampImNode.as<double>());
+			} else {
+				printErr<< "Cannot find 'ampIm' key in input file '" << _filePath << "'.";
+				throw std::exception();
+			}
+		}
+		sortPoints();
+	} else {
+		printErr << "Cannot initialize mass dependence '" << Name() << "'." << endl;
+		throw std::exception();
+	}
+	_dataLoaded = true;
+}
+
+
+std::string
+lookupTable::parentLabelForWaveName(const isobarDecayVertex& v) const
+{
+	std::ostringstream label;
+	label << name() << "<" << _tag << ">[" << v.parent()->name() << "]";
+	return label.str();
+}
+
+
+complex<double>
+lookupTable::amp(const isobarDecayVertex& v)
+{
+	if(not _dataLoaded) loadData();
+
+	// get mass
+	const double M = v.parent()->lzVec().M();                 // parent mass
+
+	complex<double> amp = 0.0;
+
+
+	checkRange(M);
+	if (not _interpolate) {
+		const size_t iNearestPoint = nearestPoint(M);
+		amp = std::complex<double>(_ampRe[iNearestPoint], _ampIm[iNearestPoint]);
+	} else if (M == _mass.back()){
+		amp = std::complex<double>(_ampRe.back(), _ampIm.back());
+	} else {
+		const size_t iFirstAbove = firstPointAbove(M);
+		// after checkRange, iFirstAbove > 0 as  _mass[0] <= M
+		const complex<double> ampAbove = complex<double>(_ampRe[iFirstAbove], _ampIm[iFirstAbove]);
+		const complex<double> ampBelow = complex<double>(_ampRe[iFirstAbove - 1], _ampIm[iFirstAbove - 1]);
+		const double weight = (_mass[iFirstAbove] - M) / (_mass[iFirstAbove] - _mass[iFirstAbove - 1]);
+		amp = weight * ampBelow + (1.0 - weight) * ampAbove;
+	}
+
+	return amp;
+
+}
+
+
+void lookupTable::sortPoints()
+{
+	// first build sort index permutation
+	std::vector<size_t> p(_mass.size());
+	std::iota(p.begin(), p.end(), 0);
+	std::sort(p.begin(), p.end(), [&](size_t i, size_t j) {return _mass[i] < _mass[j];});
+
+	// apply permutation to points
+	_mass  = applyPermutation(_mass,  p);
+	_ampRe = applyPermutation(_ampRe, p);
+	_ampIm = applyPermutation(_ampIm, p);
+}
+
+
+void
+lookupTable::checkRange(const double mass) const
+{
+	if (mass < _mass[0]){
+		printErr << "Mass '" << mass << "' out of range for parameterization '" << Name() << "' with tag '" << _tag << "'." << endl;
+		throw std::out_of_range("");
+	}
+	if (mass > _mass.back()){
+		printErr << "Mass '" << mass << "' out of range for parameterization '" << Name() << "' with tag '" << _tag << "'." << endl;
+		throw std::out_of_range("");
+	}
+}
+
+
+size_t
+lookupTable::nearestPoint(const double mass) const
+{
+	std::vector<double>::const_iterator it = std::lower_bound(_mass.begin(), _mass.end(), mass);
+	if(it == _mass.end()){
+		it = _mass.end()-1;
+	}
+	if(it != _mass.begin() and std::abs(mass - *it) > std::abs(mass - *(it-1))){ // if the next smaller point is closer
+		it = it - 1;
+	}
+	return std::distance(_mass.begin(), it);
+}
+
+
+size_t
+lookupTable::firstPointAbove(const double mass) const {
+	std::vector<double>::const_iterator it = std::upper_bound(_mass.begin(), _mass.end(), mass);
+	if(it == _mass.end()){
+		printErr << "Mass '" << mass << "' out of range for parameterization '" << Name() << "' with tag '" << _tag << "'." << endl;
+		throw std::out_of_range("");
+	}
+	return std::distance(_mass.begin(), it);
 }
 
 
@@ -677,16 +881,18 @@ KPiSGLASS::Create(const libconfig::Setting* massDepKey)
 		lookupParameter(Name(), massDepKey, "MMax", MMax);
 		lookupParameter(Name(), massDepKey, "tag", tag);
 
-		std::string forbiddenChars("[\\>\\<\\]\\[\\=]");
-		if (std::regex_search(tag, std::regex(forbiddenChars))){
-			printErr<< "The following characters are forbidden in tags: '" << forbiddenChars << "'. Aborting..." << endl;
-			throw;
+		std::vector<char> forbiddenChars = { '>', '<', ']', '[', '=' };
+		for (const auto& forbiddenChar : forbiddenChars) {
+			if (tag.find(forbiddenChar) != std::string::npos) {
+				printErr<< "The following character is forbidden in tags: '" << forbiddenChar << "'. Aborting..." << endl;
+				throw;
+			}
 		}
 
 		return KPiSGLASS::Create(a, r, M0, G0, phiF, phiR, phiRsin, F, R, MMax, tag);
 	} else {
-		printErr<< "no configuration given for mass dependence '" << Name() << "'. Aborting..." << endl;
-		throw;
+		printWarn << "no configuration given for mass dependence '" << Name() << "'. Using parameters of LASS parameterization." << endl;
+		return KPiSGLASS::Create(1.95, 1.76, 1.435, 0.279, 0.0, 0.0, 0.0, 1.0, 1.0, 5.0, "LASS");
 	}
 }
 
@@ -728,9 +934,8 @@ KPiSGLASS::amp(const isobarDecayVertex& v)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-KPiSPalanoPennington::KPiSPalanoPennington(const double MMax)
+KPiSPalanoPenningtonMatrix::KPiSPalanoPenningtonMatrix(const double MMax)
 :
-		massDependenceImpl<KPiSPalanoPennington>(),
 		_MMax(MMax),
 		_piChargedMass(0.0),
 		_kaonChargedMass(0.0),
@@ -748,30 +953,9 @@ KPiSPalanoPennington::KPiSPalanoPennington(const double MMax)
 	_etaMass = pdt.entry("eta0")->mass();
 }
 
-boost::shared_ptr<KPiSPalanoPennington>
-KPiSPalanoPennington::Create(const libconfig::Setting* massDepKey)
-{
-
-	// if not given, take up to 2.4 GeV
-	double MMax = 2.4;
-	if (massDepKey != nullptr) {
-		massDepKey->lookupValue("MMax", MMax);
-	}
-
-	return KPiSPalanoPennington::Create(MMax);
-}
-
-std::string
-KPiSPalanoPennington::parentLabelForWaveName(const isobarDecayVertex& v) const
-{
-	std::ostringstream label;
-	label << name() << "<MMax_" << _MMax << "GeV>[" << v.parent()->name() << "]";
-	return label.str();
-}
-
 complex<double>
-KPiSPalanoPennington::amp(const isobarDecayVertex& v)
-                          {
+KPiSPalanoPenningtonMatrix::ampElement(const isobarDecayVertex& v, const bool diagonalElement)
+{
 	// parameters from table I in the paper or from the text
 	const complex<double> j(0.0, 1.0);
 	const double sTop = 5.832;               // Fitting range in paper
@@ -811,19 +995,208 @@ KPiSPalanoPennington::amp(const isobarDecayVertex& v)
 		const complex<double> detK = K_11 * K_22 - K_12 * K_12;
 		const complex<double> delta = 1.0 - j * rhoKpi * K_11 - j * rhoKeta * K_22 - rhoKpi * rhoKeta * detK;
 		const complex<double> T_11 = (K_11 - j * rhoKeta * detK) / delta;
+		const complex<double> T_12 = (K_12                     ) / delta;
 
-		amp = T_11;
-
+		if (diagonalElement) amp = T_11;
+		else                 amp = T_12;
 	}
-
-	if (_debug)
-		printDebug << name() << "(m = " << maxPrecision(M) << " GeV/c^2, "
-		           << "GeV/c) = " << maxPrecisionDouble(amp) << endl;
 
 	return amp;
 
 }
 
+KPiSPalanoPennington::KPiSPalanoPennington(const double MMax)
+:
+		massDependenceImpl<KPiSPalanoPennington>(),
+		KPiSPalanoPenningtonMatrix(MMax)
+{}
+
+boost::shared_ptr<KPiSPalanoPennington>
+KPiSPalanoPennington::Create(const libconfig::Setting* massDepKey)
+{
+
+	// if not given, take up to 2.4 GeV
+	double MMax = 2.4;
+	if (massDepKey != nullptr) {
+		massDepKey->lookupValue("MMax", MMax);
+	}
+	return KPiSPalanoPennington::Create(MMax);
+}
+
+std::string
+KPiSPalanoPennington::parentLabelForWaveName(const isobarDecayVertex& v) const
+{
+	std::ostringstream label;
+	label << name() << "<MMax_" << _MMax << "GeV>[" << v.parent()->name() << "]";
+	return label.str();
+}
+
+
+complex<double>
+KPiSPalanoPennington::amp(const isobarDecayVertex& v)
+{
+	return KPiSPalanoPenningtonMatrix::ampElement(v, true);
+}
+
+KPiSPalanoPenningtonT21::KPiSPalanoPenningtonT21(const double MMax)
+:
+		massDependenceImpl<KPiSPalanoPenningtonT21>(),
+		KPiSPalanoPenningtonMatrix(MMax)
+{}
+
+boost::shared_ptr<KPiSPalanoPenningtonT21>
+KPiSPalanoPenningtonT21::Create(const libconfig::Setting* massDepKey)
+{
+
+	// if not given, take up to 2.4 GeV
+	double MMax = 2.4;
+	if (massDepKey != nullptr) {
+		massDepKey->lookupValue("MMax", MMax);
+	}
+	return KPiSPalanoPenningtonT21::Create(MMax);
+}
+
+std::string
+KPiSPalanoPenningtonT21::parentLabelForWaveName(const isobarDecayVertex& v) const
+{
+	std::ostringstream label;
+	label << name() << "<MMax_" << _MMax << "GeV>[" << v.parent()->name() << "]";
+	return label.str();
+}
+
+
+complex<double>
+KPiSPalanoPenningtonT21::amp(const isobarDecayVertex& v)
+{
+	return KPiSPalanoPenningtonMatrix::ampElement(v, false);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+KPiSMagalhaesElastic::KPiSMagalhaesElastic(const double MMax)
+:
+		massDependenceImpl<KPiSMagalhaesElastic>(),
+		_MMax(MMax)
+{
+}
+
+boost::shared_ptr<KPiSMagalhaesElastic>
+KPiSMagalhaesElastic::Create(const libconfig::Setting* massDepKey)
+                             {
+
+	// if not given, take up to 5 GeV
+	double MMax = 5.0;
+	if (massDepKey != nullptr) {
+		massDepKey->lookupValue("MMax", MMax);
+	}
+
+	return KPiSMagalhaesElastic::Create(MMax);
+}
+
+std::string
+KPiSMagalhaesElastic::parentLabelForWaveName(const isobarDecayVertex& v) const
+                                             {
+	std::ostringstream label;
+	label << name() << "<MMax_" << _MMax << "GeV>[" << v.parent()->name() << "]";
+	return label.str();
+}
+
+double
+KPiSMagalhaesElastic::lambda(const double x, const double y, const double z) const {
+	return pow((y + z - x), 2) - 4 * z * y;
+}
+
+double
+KPiSMagalhaesElastic::rhoKpi(const double s) const {
+	return sqrt(
+	        (1 - (_piChargedMass + _kaonChargedMass) * (_piChargedMass + _kaonChargedMass) / s)
+	                * (1 - (_piChargedMass - _kaonChargedMass) * (_piChargedMass - _kaonChargedMass) / s));
+}
+
+double
+KPiSMagalhaesElastic::gamma2(const double s) const { // Kernel
+	const double contact = (_mKappa * _mKappa - s) * (1.0 / (_fKpi * _fKpi))
+	        * (s - s * (3.0 / 8.0) * pow(rhoKpi(s), 2.0) - (_piChargedMass * _piChargedMass + _kaonChargedMass * _kaonChargedMass));
+	const double resonance = (3.0 / (2.0 * pow(_fKpi, 2)))
+	        * pow((_ed * s - (_ed - _em) * (_piChargedMass * _piChargedMass + _kaonChargedMass * _kaonChargedMass)), 2);
+	return resonance + contact;
+}
+
+double
+KPiSMagalhaesElastic::reL(const double s) const { // real part of the loop
+	const double threshold = pow((_kaonChargedMass + _piChargedMass), 2);
+	const double prelimiar = pow((_kaonChargedMass - _piChargedMass), 2);
+	const double _kaonChargedMass2 = _kaonChargedMass * _kaonChargedMass;
+	const double _piChargedMass2 = _piChargedMass * _piChargedMass;
+	const double Sigma = _kaonChargedMass2 + _piChargedMass2;
+	const double L0 = 1.0 + ((_kaonChargedMass2 + _piChargedMass2) / (_piChargedMass2 - _kaonChargedMass2)) * log(_piChargedMass / _kaonChargedMass)
+	        - ((_piChargedMass2 - _kaonChargedMass2) / s) * log(_piChargedMass / _kaonChargedMass); // NOvo Valor subtraido em L(0).
+
+	if (s < prelimiar)
+		return L0
+		        + (sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2)) / (2.0 * s))
+		                * log(
+		                        (_kaonChargedMass2 + _piChargedMass2 - s + sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2)))
+		                                / (_kaonChargedMass2 + _piChargedMass2 - s - sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2))));
+	if (s >= prelimiar && s < Sigma)
+		return L0
+		        - (sqrt(-lambda(s, _kaonChargedMass2, _piChargedMass2)) / s)
+		                * atan(sqrt(-lambda(s, _kaonChargedMass2, _piChargedMass2)) / (_kaonChargedMass2 + _piChargedMass2 - s));
+	if (s >= Sigma && s < threshold)
+		return L0
+		        - (sqrt(-lambda(s, _kaonChargedMass2, _piChargedMass2)) / s)
+		                * (atan(sqrt(-lambda(s, _kaonChargedMass2, _piChargedMass2)) / (_kaonChargedMass2 + _piChargedMass2 - s))
+		                        + M_PI);
+	if (s >= threshold)
+		return L0
+		        - (sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2)) / (2.0 * s))
+		                * log(
+		                        (s - _kaonChargedMass2 - _piChargedMass2 + sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2)))
+		                                / (s - _kaonChargedMass2 - _piChargedMass2 - sqrt(lambda(s, _kaonChargedMass2, _piChargedMass2))));
+	return 0.0;
+}
+
+double
+KPiSMagalhaesElastic::imL(const double s) const { // imaginary part of the loop
+	const double threshold = (_kaonChargedMass + _piChargedMass) * (_kaonChargedMass + _piChargedMass);
+	if (s > threshold)
+		return M_PI * rhoKpi(s);
+	else
+		return 0;
+}
+
+complex<double>
+KPiSMagalhaesElastic::amp(const isobarDecayVertex& v)
+                          {
+
+	// get mass
+	const double M = v.parent()->lzVec().M();                 // parent mass
+
+	complex<double> amp = 0.0;
+
+	if (M > _kaonChargedMass + _piChargedMass and M < _MMax) {
+		const double s = M * M;
+
+		const double Rbarra = -1.0 / (16.0 * M_PI * M_PI) * reL(s);
+		const double I = (-1.0 / (16.0 * M_PI * M_PI)) * imL(s);
+
+		const double M2 = _mKappa * _mKappa + gamma2(s) * (Rbarra + _C);
+		const double Gamma = gamma2(s) * I;
+
+		const double ReAmp = -gamma2(s) * (s - M2) / (pow(s - M2, 2) + Gamma * Gamma);
+		const double ImAmp = -gamma2(s) * Gamma / (pow(s - M2, 2) + Gamma * Gamma);
+
+		amp = complex<double>(ReAmp, ImAmp)/16.0/M_PI;
+
+	}
+
+	if (_debug)
+		printDebug<< name() << "(m = " << maxPrecision(M) << " GeV/c^2, "
+		<< "GeV/c) = " << maxPrecisionDouble(amp) << endl;
+
+	return amp;
+
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 complex<double>

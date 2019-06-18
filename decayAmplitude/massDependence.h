@@ -188,6 +188,51 @@ namespace rpwa {
 
 
 	//////////////////////////////////////////////////////////////////////////////
+	/// Brief Use the mass dependence from a table stored in a file
+	/// The file must have YAML format.
+	/// The file contains a list of data points (unordered).
+	/// Each data point must have :
+	///   - a 'mass' tag, representing the mass value at which the amplitude was evaluated
+	///   - a 'ampRe' tag, representing the real part of the amplitude
+	///   - a 'ampIm' tag, representing the imaginary part of the amplitude
+	class lookupTable: public massDependenceImpl<lookupTable> {
+
+	public:
+		lookupTable(const std::string& fielPath, const std::string& tag, const bool interpolate = true);
+		~lookupTable() {
+		}
+
+		using massDependenceImpl<lookupTable>::Create;
+		static boost::shared_ptr<lookupTable> Create(const libconfig::Setting* settings);
+
+		virtual std::string parentLabelForWaveName(const isobarDecayVertex& v) const;  ///< returns label for parent of decay used in wave name
+
+		virtual std::complex<double> amp(const isobarDecayVertex& v);
+
+		static constexpr const char* cName = "lookupTable";
+
+	private:
+		bool          _dataLoaded; // data was loaded from file
+		const bool    _interpolate;
+		const std::string   _filePath;
+		const std::string   _tag;
+		std::vector<double> _mass;  // mass value
+		std::vector<double> _ampRe; // real part of amplitude
+		std::vector<double> _ampIm; // imaginary part of amplitude
+
+		void loadData();
+		void sortPoints();
+		void checkRange(const double mass) const;
+		std::size_t nearestPoint(const double mass) const;
+		/// Returns the index of the first point that is strictly above mass, i.e. _mass[i] > mass
+		std::size_t firstPointAbove(const double mass) const;
+	};
+
+
+	typedef boost::shared_ptr<lookupTable> lookupTablePtr;
+
+
+	//////////////////////////////////////////////////////////////////////////////
 	/// Brief relativistic Breit-Wigner with mass-dependent width and Blatt-Weisskopf barrier factors
 	class relativisticBreitWigner : public massDependenceImpl<relativisticBreitWigner> {
 
@@ -468,7 +513,26 @@ namespace rpwa {
 	/// Fixed two bugs in the formulas of the original paper
 	///   - Equation 3: - rho_a detK   ->  - i rho_a detK
 	///   - Equation 4: (s - s_alpha)  ->  (s_alpha - s)
-	class KPiSPalanoPennington: public massDependenceImpl<KPiSPalanoPennington> {
+	class KPiSPalanoPenningtonMatrix {
+
+	public:
+
+		KPiSPalanoPenningtonMatrix(const double MMax);
+		~KPiSPalanoPenningtonMatrix(){ }
+
+		std::complex<double> ampElement(const isobarDecayVertex& v, const bool diagonalElement);
+
+	protected:
+		const double _MMax;       // maximal mass of this amplitude, returns 0 above this mass
+	private:
+		double _piChargedMass;
+		double _kaonChargedMass;
+		double _etaMass;
+	};
+
+	//////////////////////////////////////////////////////////////////////////////
+	/// Brief Kpi -> Kpi element of the K-matrix parameterization for [Kpi]_S wave from Palano, Pennington
+	class KPiSPalanoPennington: public massDependenceImpl<KPiSPalanoPennington>, public KPiSPalanoPenningtonMatrix {
 
 	public:
 
@@ -484,15 +548,68 @@ namespace rpwa {
 
 		static constexpr const char* cName = "KPiSPalanoPennington";
 
-	private:
-		double _MMax;       // maximal mass of this amplitude, returns 0 above this mass
-		double _piChargedMass;
-		double _kaonChargedMass;
-		double _etaMass;
 	};
-
-
 	typedef boost::shared_ptr<KPiSPalanoPennington> KPiSPalanoPenningtonPtr;
+
+	//////////////////////////////////////////////////////////////////////////////
+	/// Brief off-diagonal element of the K-matrix parameterization for [Kpi]_S wave from Palano, Pennington
+	class KPiSPalanoPenningtonT21: public massDependenceImpl<KPiSPalanoPenningtonT21>, public KPiSPalanoPenningtonMatrix {
+
+	public:
+
+		KPiSPalanoPenningtonT21(const double MMax);
+		~KPiSPalanoPenningtonT21(){ }
+
+		using massDependenceImpl<KPiSPalanoPenningtonT21>::Create;
+		static boost::shared_ptr<KPiSPalanoPenningtonT21> Create(const libconfig::Setting* settings);
+
+		virtual std::string parentLabelForWaveName(const isobarDecayVertex& v) const;  ///< returns label for parent of decay used in wave name
+
+		virtual std::complex<double> amp(const isobarDecayVertex& v);
+
+		static constexpr const char* cName = "KPiSPalanoPenningtonT21";
+
+	};
+	typedef boost::shared_ptr<KPiSPalanoPenningtonT21> KPiSPalanoPenningtonT21Ptr;
+
+	//////////////////////////////////////////////////////////////////////////////
+	/// Brief
+	class KPiSMagalhaesElastic: public massDependenceImpl<KPiSMagalhaesElastic> {
+
+	public:
+
+		KPiSMagalhaesElastic(const double MMax);
+		~KPiSMagalhaesElastic(){ }
+
+		using massDependenceImpl<KPiSMagalhaesElastic>::Create;
+		static boost::shared_ptr<KPiSMagalhaesElastic> Create(const libconfig::Setting* settings);
+
+		virtual std::string parentLabelForWaveName(const isobarDecayVertex& v) const;  ///< returns label for parent of decay used in wave name
+
+		virtual std::complex<double> amp(const isobarDecayVertex& v);
+
+		static constexpr const char* cName = "KPiSMagalhaesElastic";
+
+	private:
+
+		double lambda(const double x, const double y, const double z) const;
+		double rhoKpi(const double s) const;
+		double reL(const double s) const; // Real part of the loop
+		double imL(const double s) const; // Imaginary part of the loop
+		double gamma2(const double s) const;
+		double _MMax;       // maximal mass of this amplitude, returns 0 above this mass
+		// parameters from fit to LASS data up to 1.5 GeV with free scaling factor in front of amplitude
+		static constexpr double _piChargedMass = 0.13957061;
+		static constexpr double _kaonChargedMass = 0.493677;
+		static constexpr double _C = 0.0153641619439;
+		static constexpr double _fKpi = 0.102722;
+		static constexpr double _ed = 0.435638077033;
+		static constexpr double _em = 0.965917788182;
+		static constexpr double _mKappa = 1.01095807053;
+	};
+	typedef boost::shared_ptr<KPiSMagalhaesElastic> KPiSMagalhaesElasticPtr;
+
+
 }  // namespace rpwa
 
 
