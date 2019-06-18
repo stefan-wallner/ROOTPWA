@@ -1,14 +1,20 @@
 #include "amplitudeMetadata_py.h"
 
+#include <vector>
+#include <complex>
 #include <boost/python.hpp>
+#include <boost/python/numpy.hpp>
 
 #include <TPython.h>
 #include <TTree.h>
 
 #include "amplitudeMetadata.h"
 #include "rootConverters_py.h"
+#include "stlContainers_py.h"
+
 
 namespace bp = boost::python;
+namespace np = boost::python::numpy;
 
 
 namespace {
@@ -41,6 +47,36 @@ namespace {
 		return TPython::ObjectProxy_FromVoidPtr(tree, tree->ClassName());
 	}
 
+
+	np::ndarray
+	amplitudeMetadata_loadAmplitudes(
+	                                 bp::list& pyAmplitudesFilenames,
+	                                 bp::list& pyWaveNames,
+	                                 const std::string& eventFilename,
+	                                 const bp::dict& pyOtfBin,
+	                                 const long maxNmbEvents)
+	                                 {
+		const rpwa::multibinBoundariesType otfBin = rpwa::py::convertMultibinBoundariesFromPy(pyOtfBin);
+		std::vector<std::string> amplitudeFilenames;
+		if (not rpwa::py::convertBPObjectToVector<std::string>(pyAmplitudesFilenames, amplitudeFilenames)) {
+			PyErr_SetString(PyExc_TypeError, "Got invalid input for amplitudeFilenames when executing rpwa::amplitudeMetadata::loadAmplitudes()");
+			bp::throw_error_already_set();
+		}
+		std::vector<std::string> waveNames;
+		if (not rpwa::py::convertBPObjectToVector<std::string>(pyWaveNames, waveNames)) {
+			PyErr_SetString(PyExc_TypeError, "Got invalid input for waveNames when executing rpwa::amplitudeMetadata::loadAmplitudes()");
+			bp::throw_error_already_set();
+		}
+		std::vector<std::vector<std::complex<double>>> amps = rpwa::loadAmplitudes(amplitudeFilenames, waveNames, eventFilename, otfBin, maxNmbEvents);
+		np::ndarray pyIntMatrix = np::empty(bp::make_tuple(amps.size(), amps[0].size()), np::dtype::get_builtin<std::complex<double>>());
+		for (unsigned int i = 0; i < amps.size(); ++i) {
+			for (unsigned int j = 0; j < amps[i].size(); ++j) {
+				pyIntMatrix[bp::make_tuple(i, j)] = amps[i][j];
+			}
+			amps[i].resize(0);
+		}
+		return pyIntMatrix;
+	}
 }
 
 
@@ -84,5 +120,13 @@ void rpwa::py::exportAmplitudeMetadata() {
 		.def("amplitudeTree", &amplitudeMetadata_amplitudeTree)
 		.def_readonly("amplitudeLeafName", &rpwa::amplitudeMetadata::amplitudeLeafName)
 		;
+	bp::def(
+	       "loadAmplitudes",
+	       &amplitudeMetadata_loadAmplitudes,
+	      (bp::arg("amplitudeMetadata"),
+	       bp::arg("waveNames"),
+	       bp::arg("eventMeta"),
+	       bp::arg("otfBin")=bp::dict(),
+	       bp::arg("maxNmbEvents")=0));
 
 }

@@ -263,7 +263,7 @@ if(     ("$ENV{BOOST_ROOT}"       STREQUAL "")
 else()
 	set(Boost_NO_SYSTEM_PATHS ON)
 endif()
-find_package(Boost 1.67.0 REQUIRED COMPONENTS "python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}" OPTIONAL_COMPONENTS "mpi" "serialization" "system" "timer")
+find_package(Boost 1.67.0 REQUIRED COMPONENTS "python${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}" "numpy${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}" OPTIONAL_COMPONENTS "mpi" "serialization" "system" "timer")
 if(Boost_FOUND)
 	message(STATUS "Using Boost include directory '${Boost_INCLUDE_DIRS}'.")
 	message(STATUS "Using Boost library directory '${Boost_LIBRARY_DIRS}'.")
@@ -325,6 +325,17 @@ set_package_properties(NumPy
 	)
 add_definitions(-DNPY_NO_DEPRECATED_API=NPY_1_8_API_VERSION)
 
+# setup pyyaml
+message(STATUS "")
+message(STATUS ">>> Setting up PyYaml.")
+find_package(PyYaml 3.12 REQUIRED)
+set_package_properties(PyYaml
+	PROPERTIES
+	DESCRIPTION "YAML parser and emitter for Python"
+	URL "http://pyyaml.org/wiki/PyYAML"
+	PURPOSE "Used for defining analysis parameters"
+	TYPE REQUIRED
+	)
 
 # setup pylint (optional)
 message(STATUS "")
@@ -498,6 +509,42 @@ else()
 	add_definitions(-DUSE_NLOPT)
 endif()
 add_feature_info(NLopt USE_NLOPT "NLopt is a library for nonlinear optimization.")
+
+# setup PyNLopt
+message(STATUS "")
+message(STATUS ">>> Setting up NLopt Python interface.")
+find_package(PyNLopt REQUIRED)
+set_package_properties(PyNLopt
+	PROPERTIES
+	DESCRIPTION "Pyhton interface for NLopt library."
+	URL "http://ab-initio.mit.edu/wiki/index.php/NLopt"
+	TYPE OPTIONAL
+	)
+if(NOT PYNLOPT_FOUND)
+	set(USE_PyNLOPT OFF)
+	message(STATUS "Cannot find Python interface for NLopt installation. pyPartialWaveFit will not be generated.")
+else()
+	set(USE_PyNLOPT ON)
+endif()
+add_feature_info(PyNLopt USE_PyNLOPT "Python interface for NLopt library.")
+
+# setup Autograd
+message(STATUS "")
+message(STATUS ">>> Setting up autograd.")
+find_package(Autograd REQUIRED)
+set_package_properties(Autograd
+	PROPERTIES
+	DESCRIPTION "Library for automatically differentiate native Python."
+	URL "https://github.com/HIPS/autograd"
+	TYPE OPTIONAL
+	)
+if(NOT AUTOGRAD_FOUND)
+	set(USE_AUTOGRAD OFF)
+	message(STATUS "Cannot find autograd Python modul. pyPartialWaveFit will not be generated.")
+else()
+	set(USE_AUTOGRAD ON)
+endif()
+add_feature_info(Autograd USE_PyNLOPT "autograd Pyhton module.")
 
 
 # make git hash accessible via predefined macro GIT_HASH

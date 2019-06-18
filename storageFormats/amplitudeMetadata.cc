@@ -115,3 +115,99 @@ Int_t rpwa::amplitudeMetadata::Write(const char* name, Int_t option, Int_t bufsi
 	}
 	return retval + TObject::Write(name, option, bufsize);
 }
+
+vector<vector<complex<double>>>
+rpwa::loadAmplitudes(const vector<string>& ampFilenames,
+                     const vector<string>& waveNames,
+                     const string& eventFilename,
+                     const multibinBoundariesType& otfBin,
+                     long unsigned maxNmbEvents) {
+	vector<vector<complex<double>>> amps;
+	amps.resize(ampFilenames.size());
+
+	TFile* eventFile = TFile::Open(eventFilename.c_str());
+	if (eventFile == nullptr or not eventFile->IsOpen()){
+		printErr << "Cannot open event file '" << eventFilename << "'." << endl;
+		throw;
+	}
+
+	const eventMetadata* eventMeta = eventMetadata::readEventFile(eventFile);
+	if (eventMeta == nullptr) {
+		printErr << "Cannot read event medatata from file '" << eventFilename << "'." << endl;
+		throw;
+	}
+
+	additionalTreeVariables variables;
+	if(otfBin.empty()) {
+		printErr << "got event metadata but the binning map is emtpy." << endl;
+		throw;
+	}
+	TTree* eventTree = eventMeta->eventTree();
+	const unsigned long totNmbEvents = eventTree->GetEntries();
+	if (totNmbEvents == 0) {
+		printWarn << "event trees in '" << eventFilename << "'contain no amplitudes values." << endl;
+		return amps;
+	}
+	maxNmbEvents = (maxNmbEvents==0)? totNmbEvents: min(maxNmbEvents, totNmbEvents);
+
+	if (not variables.setBranchAddresses(*eventMeta)) {
+		printErr << "cannot set branch address to additional variables." << endl;
+		throw;
+	}
+
+	// build list of event indices within the current multibin
+	vector<long> eventIndicesInMultibin;
+	for(unsigned long iEvent = 0; iEvent < totNmbEvents; ++iEvent){
+		eventTree->GetEntry(iEvent);
+		if (variables.inBoundaries(otfBin)) eventIndicesInMultibin.push_back(iEvent);
+		if (eventIndicesInMultibin.size() >= maxNmbEvents) break;
+	}
+	printInfo << "load " << eventIndicesInMultibin.size() << " events of " << totNmbEvents << " events!" << endl;
+	eventFile->Close();
+
+
+	if (ampFilenames.empty()) {
+		printErr << "did not receive any amplitude filenames." << endl;
+		throw;
+	}
+
+	if (ampFilenames.size() != waveNames.size()){
+		printErr << "Length of amplitude files (" << ampFilenames.size() << ") is different form number of wave names (" << waveNames.size() << ")." << endl;
+		throw;
+	}
+	TFile* ampFile = nullptr;
+	for(size_t waveIndex = 0; waveIndex < ampFilenames.size(); waveIndex++) {
+		if (ampFile == nullptr) ampFile = TFile::Open(ampFilenames[waveIndex].c_str());
+		if (ampFile == nullptr or not ampFile->IsOpen()){
+			printErr << "Cannot open amplitude file '" << ampFilenames[waveIndex] << "'." << endl;
+			throw;
+		}
+		const amplitudeMetadata* ampMeta = amplitudeMetadata::readAmplitudeFile(ampFile, waveNames[waveIndex]);
+
+		if (totNmbEvents != static_cast<unsigned long>(ampMeta->amplitudeTree()->GetEntries())) {
+			printErr << "amplitude trees do not all have the same entry count as the event tree." << endl;
+			throw;
+		}
+
+		amplitudeTreeLeaf* ampTreeLeaf = nullptr;
+		ampMeta->amplitudeTree()->SetBranchAddress(amplitudeMetadata::amplitudeLeafName.c_str(), &ampTreeLeaf);
+
+		vector<complex<double>> ampsOfWave;
+		ampsOfWave.reserve(eventIndicesInMultibin.size());
+		for(const auto iEvent: eventIndicesInMultibin){
+			ampMeta->amplitudeTree()->GetEntry(iEvent);
+
+				if (ampTreeLeaf->nmbIncohSubAmps() != 1){
+					printErr << "Cannot handle more than one subamplitude at the moment!" << endl;
+					throw;
+				}
+				ampsOfWave.push_back(ampTreeLeaf->amp());
+		}
+		amps[waveIndex] = ampsOfWave;
+		if (waveIndex == ampFilenames.size()-1 or ampFilenames[waveIndex] != ampFilenames[waveIndex+1]) {
+			ampFile->Close();
+			ampFile = nullptr;
+		} // else keep the file opened as the next wave is in the same amplitude file.
+	}
+	return amps;
+}

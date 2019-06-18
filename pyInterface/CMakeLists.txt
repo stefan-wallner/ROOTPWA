@@ -59,6 +59,16 @@ set(RPWA_PYTHON_PACKAGE_FILES
 	utils/_silencer.py
 	utils/_waveDescThresUtils.py
 )
+if (USE_PyNLOPT AND USE_AUTOGRAD)
+	LIST(APPEND RPWA_PYTHON_PACKAGE_FILES
+		pyPartialWaveFit/__init__.py
+		pyPartialWaveFit/_likelihood.py
+		pyPartialWaveFit/_parameterMapping.py
+		pyPartialWaveFit/_model.py
+		pyPartialWaveFit/_fitter.py
+		pyPartialWaveFit/_startParameterGenerator.py
+	)
+endif()
 
 set(RPWA_PYTHON_PACKAGE_BYTECODES)
 set(RPWA_PYTHON_PACKAGE_DIRS)
@@ -75,15 +85,15 @@ foreach(_FILE ${RPWA_PYTHON_PACKAGE_FILES})
 	list(APPEND RPWA_PYTHON_PACKAGE_LINKS "${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/${_FILE}")
 	add_custom_command(
 		OUTPUT ${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/${_FILE}
-		COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/module/${_FILE} ${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/${_FILE}
-		DEPENDS pyRootPwaPackageDirs
+		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/module/${_FILE} ${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/${_FILE}
+		DEPENDS pyRootPwaPackageDirs ${CMAKE_CURRENT_SOURCE_DIR}/module/${_FILE}
 	)
 	# list of files containing bytecode
 	list(APPEND RPWA_PYTHON_PACKAGE_BYTECODES "${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/${_FILE}c")
 	add_custom_command(
 		OUTPUT ${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/${_FILE}c
 		COMMAND ${PYTHON_EXECUTABLE} -m py_compile ${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/${_FILE}
-		DEPENDS pyRootPwaPackageLinks module/${_FILE}
+		DEPENDS pyRootPwaPackageLinks ${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/${_FILE}
 	)
 endforeach()
 unset(_DIR)
@@ -109,7 +119,7 @@ add_custom_target(
 # link the shared library with the python bindings
 add_custom_target(
 	libRootPwaPyLink ALL
-	COMMAND ${CMAKE_COMMAND} -E create_symlink ${LIBRARY_OUTPUT_PATH}/${CMAKE_SHARED_LIBRARY_PREFIX}RootPwaPy${CMAKE_SHARED_LIBRARY_SUFFIX} ${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/libRootPwaPy.so
+	COMMAND ${CMAKE_COMMAND} -E copy ${LIBRARY_OUTPUT_PATH}/${CMAKE_SHARED_LIBRARY_PREFIX}RootPwaPy${CMAKE_SHARED_LIBRARY_SUFFIX} ${PYTHON_LIBRARY_OUTPUT_PATH}/pyRootPwa/libRootPwaPy.so
 	DEPENDS RootPwaPy pyRootPwaPackageDirs
 )
 
@@ -141,6 +151,9 @@ endif()
 if(USE_NLOPT)
 	LIST(APPEND RPWA_PYTHON_SCRIPTS_FILES pwaNloptFit.py)
 endif()
+if (USE_PyNLOPT AND USE_AUTOGRAD)
+	LIST(APPEND RPWA_PYTHON_SCRIPTS_FILES pwaPyFit.py pwaPyFitConnected.py)
+endif()
 
 set(RPWA_PYTHON_SCRIPTS_LINKS)
 foreach(_FILE ${RPWA_PYTHON_SCRIPTS_FILES})
@@ -166,12 +179,12 @@ if(PYLINT_FOUND)
 	# check 'pyRootPwa' module
 	add_test(
 		NAME pyLintPyRootPwa
-		COMMAND ${PYLINT_EXECUTABLE} --reports=n --rcfile=${CMAKE_CURRENT_SOURCE_DIR}/pylintrc module
+		COMMAND ${PYLINT_EXECUTABLE} --reports=n --rcfile=${CMAKE_CURRENT_SOURCE_DIR}/pylintrc pyRootPwa
 	)
 	set_property(
 		TEST pyLintPyRootPwa
 		APPEND
-		PROPERTY ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}:${PYTHON_LIBRARY_OUTPUT_PATH}:$ENV{PYTHONPATH}"
+		PROPERTY ENVIRONMENT "PYTHONPATH=${PYTHON_LIBRARY_OUTPUT_PATH}:$ENV{PYTHONPATH}"
 	)
 
 	# check scripts

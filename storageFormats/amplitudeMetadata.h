@@ -2,6 +2,9 @@
 #ifndef AMPLITUDEMETADATA_H
 #define AMPLITUDEMETADATA_H
 
+#include <vector>
+#include <complex>
+
 #include <TObject.h>
 
 #include "eventMetadata.h"
@@ -80,6 +83,13 @@ namespace rpwa {
 	{
 		return metadata.print(out);
 	}
+
+std::vector<std::vector<std::complex<double>>>
+loadAmplitudes(const std::vector<std::string>& ampFilenames,
+               const std::vector<std::string>& waveNames,
+               const std::string&              eventFilename,
+               const multibinBoundariesType&   otfBin,
+               unsigned long                   maxNmbEvents = 0);
 
 } // namespace rpwa
 

@@ -75,8 +75,20 @@
 
 
 
+namespace rpwa{
+	namespace py {
+		void
+		initialize()
+		{
+			boost::python::numpy::initialize();
+		}
+	}
+}
+
+
 BOOST_PYTHON_MODULE(libRootPwaPy){
 
+	rpwa::py::initialize();
 	rpwa::py::exportStlContainers();
 	rpwa::py::exportParticleProperties();
 	rpwa::py::exportParticleDataTable();
