@@ -118,6 +118,7 @@ add_custom_target(
 set(RPWA_PYTHON_SCRIPTS_FILES
 	calcAmplitudes.py
 	calcCovMatrixForFitResult.py
+	calcEventWeights.py
 	calcIntegrals.py
 	convertEventFile.py
 	convertEvtToTree.py

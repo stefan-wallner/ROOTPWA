@@ -1,9 +1,18 @@
 #include "fitResult_py.h"
 
 #include <boost/python.hpp>
+#include <boost/version.hpp>
+#include <boost/python/tuple.hpp>
 #include <vector>
 #include <list>
 #include <map>
+#include <cmath>
+
+#if BOOST_VERSION < 106500
+#include <boost/python/numeric.hpp>
+#else
+#include <boost/python/numpy.hpp>
+#endif
 
 #include <TTree.h>
 
@@ -15,6 +24,12 @@ namespace bp = boost::python;
 
 
 namespace {
+
+#if BOOST_VERSION < 106500
+	typedef boost::python::numeric::array nparray;
+#else
+	typedef boost::python::numpy::ndarray nparray;
+#endif
 
 	void fitResult_fill_1(rpwa::fitResult& self,
 	                      const unsigned int                        nmbEvents,
@@ -423,9 +438,48 @@ namespace {
 		return pyFitResultsInMultibins;
 	}
 
+
+	/***
+	 * Little helper class to have the right interface for spinDensityMatrixTimesAmplitudeMatrix
+	 */
+	class numpyComplexMatrixWrapper{
+	public:
+		numpyComplexMatrixWrapper(nparray& matrix): _matrix(matrix){}
+
+		std::complex<double> operator ()(const int i, const int j)const{
+			return bp::extract<std::complex<double>>(_matrix[bp::make_tuple(i,j)]);
+		}
+
+	private:
+		nparray& _matrix;
+	};
+
+
+	double
+	fitResult_spinDensityMatrixTimesAmplitudeMatrix(rpwa::fitResult& self, bp::list& waveIndices, nparray& amplMatrix){
+		std::vector<unsigned int> waveIndicesC;
+		if ( not rpwa::py::convertBPObjectToVector(waveIndices, waveIndicesC)) return std::nan("");
+		numpyComplexMatrixWrapper amplMatrixC(amplMatrix);
+		return self.spinDensityMatrixTimesAmplitudeMatrix(waveIndicesC, amplMatrixC);
+	}
+
+
+	double
+	_spinDensityMatrixTimesAmplitudeMatrix(bp::list& waveIndices, nparray& spinDensityMatrix, nparray& amplMatrix){
+		std::vector<unsigned int> waveIndicesC;
+		if ( not rpwa::py::convertBPObjectToVector(waveIndices, waveIndicesC)) return std::nan("");
+		numpyComplexMatrixWrapper spinDensityMatrixC(spinDensityMatrix);
+		numpyComplexMatrixWrapper amplMatrixC(amplMatrix);
+		return rpwa::spinDensityMatrixTimesAmplitudeMatrix(waveIndicesC, spinDensityMatrixC, amplMatrixC);
+	}
+
 }
 
 void rpwa::py::exportFitResult() {
+
+#if BOOST_VERSION < 106500
+	boost::python::numeric::array::set_module_and_type("numpy", "ndarray");
+#endif
 
 	bp::def("escapeRegExpSpecialChar", &rpwa::escapeRegExpSpecialChar);
 	bp::def("unescapeRegExpSpecialChar", &rpwa::unescapeRegExpSpecialChar);
@@ -533,7 +587,9 @@ void rpwa::py::exportFitResult() {
 			   bp::arg("bufsize")=32000,
 			   bp::arg("splitlevel")=99)
 		)
+		.def("spinDensityMatrixTimesAmplitudeMatrix", *fitResult_spinDensityMatrixTimesAmplitudeMatrix)
 		;
+	bp::def("spinDensityMatrixTimesAmplitudeMatrix", &_spinDensityMatrixTimesAmplitudeMatrix);
 
 	bp::register_ptr_to_python<rpwa::fitResultPtr>();
 

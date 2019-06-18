@@ -111,6 +111,24 @@ namespace rpwa {
 
 	public:
 
+		template<typename T>
+		class amplitudeMatrixAdapter {
+
+		public:
+
+			amplitudeMatrixAdapter(const std::vector<T>& amplitudes)
+				: _amplitudes(amplitudes)
+			{
+			}
+
+			T operator()(const unsigned int i, const unsigned int j) const { return _amplitudes[i]*conj(_amplitudes[j]); }
+
+		private:
+
+			const std::vector<T>& _amplitudes;
+
+		};
+
 		fitResult();
 
 		/**
@@ -339,6 +357,10 @@ namespace rpwa {
 		double intensity   () const { return intensity   (".*"); }
 		/// returns error of total intensity
 		double intensityErr() const { return intensityErr(".*"); }
+
+
+		// multiply spin-density matrix elements with an amplitude matrix
+		template<typename T> double spinDensityMatrixTimesAmplitudeMatrix(const std::vector<unsigned int>& waveIndices, const T& amplitudeMatrix) const;
 
 
 		// low level interface to make copying easier
@@ -676,6 +698,48 @@ namespace rpwa {
 	                 const bool onlyBestResultInMultibin,
 	                 const bool stripMatricesFromNotBestResults,
 	                 const bool onlyConvergedResults);
+
+	/// \brief wrapper class to calculate the spin-density matrix on the fly from a fit result
+	class spinDensityMatrixFromFitResult{
+	public:
+		spinDensityMatrixFromFitResult(const fitResult& result): _result(result){}
+		std::complex<double> operator()(const unsigned int i, const unsigned int j)const{
+			return _result.spinDensityMatrixElem(i, j);
+		}
+	private:
+		const fitResult& _result;
+	};
+
+	/// multiply spin-density matrix elements with an amplitude matrix
+	// could for example be used to calculate intensities of multiple waves
+	// taking the interference into account, but this would probably be a
+	// tiny bit slower as the optimized function does not need to multiply
+	// with 1. for the diagonal elements, i.e.:
+	//    spinDensityMatrixTimesAmplitudeMatrix(waveIndices, _normIntegral)
+	template<typename TspinDensity, typename Tampl>
+	double
+	spinDensityMatrixTimesAmplitudeMatrix(const std::vector<unsigned int>& waveIndices,
+	                                      const TspinDensity& spinDensityMatrix,
+	                                      const Tampl& amplitudeMatrix)
+	{
+		double result = 0;
+		for (unsigned int i = 0; i < waveIndices.size(); ++i) {
+			result += spinDensityMatrix(waveIndices[i], waveIndices[i]).real() * amplitudeMatrix(waveIndices[i], waveIndices[i]).real();
+			for (unsigned int j = 0; j < i; ++j) {
+				result += 2. * (spinDensityMatrix(waveIndices[i], waveIndices[j]) * amplitudeMatrix(waveIndices[i], waveIndices[j])).real();
+			}
+		}
+		return result;
+	}
+
+	template<typename T>
+	double
+	fitResult::spinDensityMatrixTimesAmplitudeMatrix(const std::vector<unsigned int>& waveIndices,
+	                                                 const T& amplitudeMatrix) const
+	{
+		spinDensityMatrixFromFitResult spinDensityMatrix(*this);
+		return rpwa::spinDensityMatrixTimesAmplitudeMatrix(waveIndices, spinDensityMatrix, amplitudeMatrix);
+	}
 
 }  // namespace rpwa
 
